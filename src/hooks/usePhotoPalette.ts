@@ -226,7 +226,7 @@ export function usePhotoPalette() {
       } catch (err) {
         console.warn('[photo-palette] exposure-neutral render failed', err);
       }
-    }, 800);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [adjustments, selectedPath, isReady, isSliderDragging, theme]);
 }

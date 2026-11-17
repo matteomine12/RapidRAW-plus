@@ -1,7 +1,7 @@
 @import 'tailwindcss' source('.');
 @source '../index.html';
 
-/* Photo palette: animated smoothly whenever the photo changes */
+/* Photo palette colours (set from the current photo) */
 @property --photo-c1 {
   syntax: '<color>';
   inherits: true;
@@ -19,10 +19,6 @@
 }
 
 :root {
-  transition:
-    --photo-c1 1s ease,
-    --photo-c2 1s ease,
-    --photo-c3 1s ease;
   --photo-gradient:
     radial-gradient(110vmax 80vmax at 20% 25%, var(--photo-c1) 0%, transparent 100%),
     radial-gradient(100vmax 75vmax at 80% 30%, var(--photo-c2) 0%, transparent 100%),
@@ -33,27 +29,24 @@
     );
 }
 
-/* Every former flat-grey panel now shows the viewport-fixed photo gradient under a contrast scrim. */
-.bg-bg-primary,
-.bg-bg-secondary {
-  background-color: transparent;
-  background-image: linear-gradient(var(--app-scrim), var(--app-scrim)), var(--photo-gradient);
-  background-attachment: fixed;
-  background-size: 100vw 100vh;
+/* Panels are flat translucent scrims over the single shared photo gradient (AppBackdrop). */
+.bg-bg-primary {
+  background-color: var(--app-scrim);
 }
 .bg-bg-secondary {
-  background-image: linear-gradient(var(--app-bg-secondary), var(--app-bg-secondary)), var(--photo-gradient);
+  background-color: var(--app-bg-secondary);
 }
 
 /* Dialogs: frosted photo-gradient card, never see-through, shaded for contrast */
 [role='dialog'] > div:first-child:not([class*='bg-transparent']),
 [class*='fixed inset-0'][class*='z-50'][class*='backdrop-blur'] > div:first-child {
-  background-color: transparent;
-  background-image: linear-gradient(var(--app-modal-shade), var(--app-modal-shade)), var(--photo-gradient);
-  background-size: 100% 100%;
-  background-attachment: scroll;
-  -webkit-backdrop-filter: blur(28px);
-  backdrop-filter: blur(28px);
+  background-color: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--photo-c2) 30%, var(--app-popup-base)) 94%,
+    transparent
+  );
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--app-border-color);
   border-radius: var(--radius-xl);
 }
@@ -62,12 +55,14 @@
 [class*='bg-surface/80'],
 [class*='bg-surface/9'],
 [class*='bg-surface!'] {
-  background-color: transparent !important;
-  background-image: linear-gradient(var(--app-modal-shade), var(--app-modal-shade)), var(--photo-gradient) !important;
-  background-size: 100vw 100vh !important;
-  background-attachment: fixed !important;
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
+  background-color: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--photo-c2) 30%, var(--app-popup-base)) 94%,
+    transparent
+  ) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--app-border-color);
 }
 

@@ -53,7 +53,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { useThumbnails } from './hooks/useThumbnails';
 import AppBackdrop from './components/ui/AppBackdrop';
-import { usePhotoPalette } from './hooks/usePhotoPalette';
+import PhotoPalette from './components/ui/PhotoPalette';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTauriListeners } from './hooks/useTauriListeners';
@@ -257,7 +257,6 @@ function App() {
   const [thumbnailSize, setThumbnailSize] = useState(defaultThumbnailSize);
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState(ThumbnailAspectRatio.Contain);
 
-  usePhotoPalette();
   const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
 
   const transformWrapperRef = useRef<any>(null);
@@ -936,6 +935,7 @@ function App() {
         currentResRef={currentResRef}
       />
       <ImageLoaderManager cachedEditStateRef={cachedEditStateRef} />
+      <PhotoPalette />
       <AppBackdrop holeActive={isWgpuActive} />
       <div
         className={clsx(
