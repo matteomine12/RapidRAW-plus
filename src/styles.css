@@ -24,10 +24,62 @@
     --photo-c2 1.4s var(--ease-spring),
     --photo-c3 1.4s var(--ease-spring);
   --photo-gradient:
-    radial-gradient(70% 80% at 12% 8%, var(--photo-c1) 0%, transparent 70%),
-    radial-gradient(75% 85% at 92% 18%, var(--photo-c2) 0%, transparent 72%),
-    radial-gradient(80% 90% at 55% 100%, var(--photo-c3) 0%, transparent 75%),
-    color-mix(in oklab, var(--photo-c1) 35%, rgb(10 10 14));
+    radial-gradient(
+      90vmax 70vmax at calc(30% + 22% * sin(var(--drift-a))) calc(30% + 20% * cos(var(--drift-b))),
+      var(--photo-c1) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      85vmax 65vmax at calc(70% + 22% * cos(var(--drift-b))) calc(35% + 22% * sin(var(--drift-c))),
+      var(--photo-c2) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      95vmax 70vmax at calc(50% + 24% * sin(var(--drift-c))) calc(75% + 18% * cos(var(--drift-a))),
+      var(--photo-c3) 0%,
+      transparent 100%
+    ),
+    radial-gradient(
+      70vmax 60vmax at calc(50% + 30% * cos(var(--drift-a))) calc(50% + 30% * sin(var(--drift-b))),
+      color-mix(in oklab, var(--photo-c1), var(--photo-c3)) 0%,
+      transparent 100%
+    ),
+    color-mix(in oklab, var(--photo-c2) 40%, rgb(10 10 14));
+  animation:
+    drift-a 47s linear infinite,
+    drift-b 61s linear infinite,
+    drift-c 73s linear infinite;
+}
+
+@property --drift-a {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+@property --drift-b {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 90deg;
+}
+@property --drift-c {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 200deg;
+}
+@keyframes drift-a {
+  to {
+    --drift-a: 360deg;
+  }
+}
+@keyframes drift-b {
+  to {
+    --drift-b: 450deg;
+  }
+}
+@keyframes drift-c {
+  to {
+    --drift-c: 560deg;
+  }
 }
 
 /* Every former flat-grey panel now shows the viewport-fixed photo gradient under a contrast scrim. */
