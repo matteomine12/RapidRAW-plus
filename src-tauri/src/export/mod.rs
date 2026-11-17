@@ -36,9 +36,10 @@ use crate::export::original::{
     load_export_source_image, original_export_adjustments, original_output_path,
 };
 use crate::export::settings::{
-    ExportAdjustmentsMode, ExportSettings, render_output_precision, wants_hdr_export,
-    wants_ultra_hdr,
+    ExportAdjustmentsMode, ExportSettings, hdr_output_space, render_output_precision,
+    wants_hdr_export, wants_ultra_hdr,
 };
+use crate::render::color_space::OutputSpace;
 use crate::export::tasks::{
     ExportTaskGuard, ensure_export_not_cancelled, estimate_export_memory, finish_export_task,
     register_export_task,
@@ -71,6 +72,7 @@ fn process_image_for_export_pipeline(
     debug_tag: &str,
     app_handle: &tauri::AppHandle,
     output_precision: RenderOutputPrecision,
+    output_space: OutputSpace,
 ) -> Result<DynamicImage, String> {
     let (fitted, fit_scale) = fit_to_gpu(context, base_image);
     let scale = fit_scale * base_scale;
@@ -115,6 +117,7 @@ fn process_image_for_export_pipeline(
     let mut all_adjustments =
         get_all_adjustments_from_json(js_adjustments, is_raw, as_shot(path), render);
     all_adjustments.global.show_clipping = 0;
+    all_adjustments.global.set_output_space(output_space);
 
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
@@ -171,6 +174,11 @@ fn process_image_for_export(
             export_settings,
             wants_hdr_export(js_adjustments, output_format, export_settings),
         ),
+        if wants_hdr_export(js_adjustments, output_format, export_settings) {
+            hdr_output_space(output_format, export_settings)
+        } else {
+            OutputSpace::Srgb
+        },
     )?;
 
     apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
@@ -189,6 +197,7 @@ fn process_ultra_hdr_pair(
     is_raw: bool,
     app_handle: &tauri::AppHandle,
 ) -> Result<(DynamicImage, DynamicImage), String> {
+    let space = hdr_output_space("jpg", export_settings);
     let render = |precision| {
         process_image_for_export_pipeline(
             path,
@@ -201,6 +210,7 @@ fn process_ultra_hdr_pair(
             "process_ultra_hdr_export",
             app_handle,
             precision,
+            space,
         )
         .and_then(|image| {
             apply_export_geometry_and_watermark(image, export_settings).map(|(image, _)| image)
@@ -976,6 +986,7 @@ pub async fn run_headless_export(
         export_original: session.export_original,
         hdr_export: true,
         hdr_transfer: Default::default(),
+        hdr_color_space: None,
     };
 
     let mut custom_adjustments = None;

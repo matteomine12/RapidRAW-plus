@@ -369,6 +369,9 @@ pub struct ExportPreset {
     /// "pq" or "hlg" for HDR PNG and AVIF.
     #[serde(default)]
     pub hdr_transfer: Option<String>,
+    /// "srgb", "p3" or "rec2020"; `None` = the format's default.
+    #[serde(default)]
+    pub hdr_color_space: Option<String>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -412,6 +415,7 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             preserve_timestamps: Some(false),
             hdr_export: Some(true),
             hdr_transfer: Some("pq".to_string()),
+            hdr_color_space: None,
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -452,6 +456,7 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             preserve_timestamps: Some(false),
             hdr_export: Some(true),
             hdr_transfer: Some("pq".to_string()),
+            hdr_color_space: None,
         },
     ]
 }

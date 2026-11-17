@@ -177,6 +177,14 @@ pub struct GlobalAdjustments {
     pub sharpness_threshold: f32,
 
     pub monochrome: MonochromeSettings,
+
+    /// Linear sRGB to the output colour space (identity unless a wide gamut export is asked for).
+    pub out_matrix: GpuMat3,
+    /// Per channel (threshold, scale, 0, 0) of the compression the RAW develop pass applied to the camera's
+    /// colours; scale 0 = none. Inverted in the shader to recover the colours outside sRGB.
+    pub gamut: [[f32; 4]; 3],
+    /// `x` = 1: render for a wide gamut output space.
+    pub out_flags: [u32; 4],
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -555,6 +563,13 @@ fn hdr_uniforms(js_adjustments: &serde_json::Value, agx: bool) -> (f32, f32, f32
 }
 
 impl GlobalAdjustments {
+    /// Renders for `space`: the pipeline then rebuilds the colours the camera recorded beyond sRGB and
+    /// converts the result to this space. `Srgb` leaves the render exactly as it is.
+    pub fn set_output_space(&mut self, space: crate::render::color_space::OutputSpace) {
+        self.out_matrix = mat3_to_gpu_mat3(space.from_srgb());
+        self.out_flags[0] = u32::from(space.is_wide());
+    }
+
     /// Caps the HDR peak (linear, SDR white = 1), e.g. to what the display can show.
     pub fn limit_hdr_peak(&mut self, max_peak: f32) {
         if self.hdr_peak > 1.0 {
@@ -894,6 +909,10 @@ fn get_global_adjustments_from_json(
         } else {
             MonochromeSettings::default()
         },
+
+        out_matrix: GpuMat3::default(),
+        gamut: [[0.0; 4]; 3],
+        out_flags: [0; 4],
     }
 }
 
@@ -1076,13 +1095,16 @@ pub fn get_all_adjustments_from_json(
     } else {
         as_shot.white_balance
     };
-    let global = get_global_adjustments_from_json(
+    let mut global = get_global_adjustments_from_json(
         js_adjustments,
         is_raw,
         white_balance::adaptation_log_gains(as_shot.white_balance, target_white_balance),
         effective_baseline_exposure(js_adjustments, as_shot, render.baseline),
         render.tonemapper_override,
     );
+    if is_raw {
+        global.gamut = as_shot.gamut.map(|[threshold, scale]| [threshold, scale, 0.0, 0.0]);
+    }
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
 

@@ -380,3 +380,44 @@ pub fn lock_or_reset<'a, T>(
         guard
     })
 }
+
+/// A full GPU context for unit tests (no window): the adapter the app would pick on this machine.
+#[cfg(test)]
+pub fn test_gpu_context() -> Result<GpuContext, String> {
+    static CONTEXT: OnceLock<Result<GpuContext, String>> = OnceLock::new();
+    CONTEXT
+        .get_or_init(|| {
+            let mut desc = wgpu::InstanceDescriptor::new_without_display_handle_from_env();
+            if cfg!(target_os = "windows") && std::env::var("WGPU_BACKEND").is_err() {
+                desc.backends = wgpu::Backends::PRIMARY;
+            }
+            let instance = wgpu::Instance::new(desc);
+            let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                ..Default::default()
+            }))
+            .map_err(|e| e.to_string())?;
+            let limits = adapter.limits();
+            static LOST: AtomicBool = AtomicBool::new(false);
+            let mut features = wgpu::Features::empty();
+            if adapter
+                .features()
+                .contains(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
+            {
+                features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+            }
+            let (device, queue) = open_device(&adapter, "Test Render Device", features, &limits, &LOST)?;
+            Ok(GpuContext {
+                instance,
+                adapter,
+                device,
+                queue,
+                limits,
+                display: Arc::new(Mutex::new(None)),
+                viewer_display: Arc::new(Mutex::new(None)),
+                pipelines: Arc::new(OnceLock::new()),
+                compute: Arc::new(OnceLock::new()),
+            })
+        })
+        .clone()
+}

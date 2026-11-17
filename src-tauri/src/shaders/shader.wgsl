@@ -135,6 +135,10 @@ struct GlobalAdjustments {
     sharpness_threshold: f32,
 
     monochrome: MonochromeSettings,
+
+    out_matrix: mat3x3<f32>,
+    gamut: array<vec4<f32>, 3>,
+    out_flags: vec4<u32>,
 }
 
 struct MaskAdjustments {
@@ -1998,6 +2002,48 @@ fn apply_halation(color: vec3<f32>, energy: f32, amount: f32) -> vec3<f32> {
     return contrast_reduced + tint * max(energy, 0.0) * amount * 2.5;
 }
 
+// ---- wide gamut output -------------------------------------------------------------------------------
+// The RAW develop pass compresses the colours the camera recorded beyond sRGB into sRGB (distance from the
+// achromatic axis, per channel; threshold and scale in `adjustments.global.gamut`). The compression is a
+// smooth monotone curve, so it can be inverted: this recovers how far outside sRGB each channel was.
+const GAMUT_POWER: f32 = 1.2;
+
+fn gamut_decompress(c: u32, d: f32) -> f32 {
+    let k = adjustments.global.gamut[c];
+    if (k.y <= 0.0 || d <= k.x) {
+        return d;
+    }
+    // the compression maps the camera's own gamut edge to exactly 1
+    let v = min(pow((min(d, 1.0) - k.x) / k.y, GAMUT_POWER), 0.999);
+    return k.x + k.y * pow(v / (1.0 - v), 1.0 / GAMUT_POWER);
+}
+
+// How far (linear sRGB, scene referred) the source colour lies outside sRGB: zero or negative per channel.
+fn gamut_residual(c: vec3<f32>) -> vec3<f32> {
+    let a = max(max(c.r, c.g), c.b);
+    if (a <= 1.0e-5) {
+        return vec3<f32>(0.0);
+    }
+    var r = vec3<f32>(0.0);
+    for (var i = 0u; i < 3u; i++) {
+        let d = (a - c[i]) / a;
+        r[i] = -(gamut_decompress(i, d) - d) * a;
+    }
+    return r;
+}
+
+// `lin`: the render in linear sRGB primaries (clipped to sRGB), `src`: the source colour it came from. The
+// part of the source outside sRGB goes through the same brightness change as the rest of the pixel, then
+// everything is converted to the output space.
+fn wide_output(lin: vec3<f32>, residual: vec3<f32>, src: vec3<f32>) -> vec3<f32> {
+    var wide = lin;
+    let src_luma = get_luma(src);
+    if (src_luma > 1.0e-4) {
+        wide = lin + residual * clamp(get_luma(lin) / src_luma, 0.0, 64.0);
+    }
+    return adjustments.global.out_matrix * wide;
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id) id: vec3<u32>,
@@ -2042,6 +2088,11 @@ fn main(
         initial_linear_rgb = srgb_to_linear(color_from_texture);
     } else {
         initial_linear_rgb = color_from_texture;
+    }
+
+    var gamut_resid = vec3<f32>(0.0);
+    if (adjustments.global.out_flags.x == 1u && is_raw == 1u) {
+        gamut_resid = gamut_residual(initial_linear_rgb);
     }
 
     var t_exposure = adjustments.global.exposure;
@@ -2379,8 +2430,16 @@ fn main(
                 hdr_linear = band;
             }
         }
+        if (adjustments.global.out_flags.x == 1u && adjustments.global.show_clipping == 0u) {
+            hdr_linear = wide_output(hdr_linear, gamut_resid, initial_linear_rgb);
+        }
         textureStore(output_texture, id.xy, vec4<f32>(min(hdr_linear, vec3<f32>(peak)), original_alpha));
         return;
+    }
+
+    if (adjustments.global.out_flags.x == 1u) {
+        let sdr_lin = srgb_to_linear(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)));
+        final_rgb = linear_to_srgb(max(wide_output(sdr_lin, gamut_resid, initial_linear_rgb), vec3<f32>(0.0)));
     }
 
     if (HIGH_PRECISION_OUTPUT == 0u) {

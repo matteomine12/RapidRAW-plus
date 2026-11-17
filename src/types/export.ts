@@ -42,6 +42,8 @@ export const isUniqueFilenameTemplate = (template: string): boolean =>
 
 export type TiffBitDepth = 8 | 16;
 export type HdrTransfer = 'pq' | 'hlg';
+/** Colour space of HDR files: sRGB (Rec.709 primaries), Display P3 or Rec.2020. */
+export type HdrColorSpace = 'srgb' | 'p3' | 'rec2020';
 
 export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
@@ -53,6 +55,7 @@ export interface ExportSettings {
   /** Keep the highlights of an HDR edit (Ultra HDR JPEG, PNG/AVIF with PQ or HLG, JPEG XL, float TIFF). */
   hdrExport?: boolean;
   hdrTransfer?: HdrTransfer;
+  hdrColorSpace?: HdrColorSpace;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   resize: {
@@ -149,6 +152,7 @@ export interface ExportPreset {
   tiffBitDepth?: TiffBitDepth;
   hdrExport?: boolean;
   hdrTransfer?: HdrTransfer;
+  hdrColorSpace?: HdrColorSpace | null;
   dpi?: number;
   enableResize: boolean;
   resizeMode: string;

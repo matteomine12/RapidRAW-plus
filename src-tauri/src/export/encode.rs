@@ -126,6 +126,7 @@ pub fn save_ultra_hdr(
         sdr,
         hdr,
         export_settings.jpeg_quality,
+        crate::export::settings::hdr_output_space("jpg", export_settings),
         Some(&write_metadata),
     )?;
 
@@ -246,6 +247,7 @@ pub fn encode_image_to_bytes(
                 return crate::export::hdr_encode::encode_hdr_png(
                     image,
                     export_settings.hdr_transfer,
+                    crate::export::settings::hdr_output_space("png", export_settings),
                     export_settings.dpi,
                 );
             }
@@ -297,6 +299,7 @@ pub fn encode_image_to_bytes(
                 return crate::export::hdr_encode::encode_hdr_avif(
                     image,
                     export_settings.hdr_transfer,
+                    crate::export::settings::hdr_output_space("avif", export_settings),
                     jpeg_quality,
                 );
             }

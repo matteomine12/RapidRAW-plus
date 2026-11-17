@@ -176,16 +176,16 @@ fn primary_color_matrix(raw_image: &RawImage) -> Option<&FlatColorMatrix> {
         .or_else(|| matrices.values().next())
 }
 
-struct GamutCompression {
-    threshold: f32,
-    scale: f32,
+pub(crate) struct GamutCompression {
+    pub(crate) threshold: f32,
+    pub(crate) scale: f32,
 }
 
 impl GamutCompression {
     const THRESHOLD: f32 = 0.8;
     const POWER: f32 = 1.2;
 
-    fn new(limit: f32) -> Option<Self> {
+    pub(crate) fn new(limit: f32) -> Option<Self> {
         if limit <= 1.0 {
             return None;
         }
@@ -197,7 +197,7 @@ impl GamutCompression {
     }
 
     #[inline]
-    fn compress(&self, distance: f32) -> f32 {
+    pub(crate) fn compress(&self, distance: f32) -> f32 {
         if distance <= self.threshold {
             return distance;
         }
@@ -210,6 +210,20 @@ impl GamutCompression {
 struct CameraToSrgb {
     matrix: [[f32; 4]; 3],
     compression: [Option<GamutCompression>; 3],
+}
+
+impl GamutCompression {
+    /// The inverse of [`GamutCompression::compress`]: the distance a compressed distance came from.
+    #[allow(dead_code)]
+    fn decompress(&self, distance: f32) -> f32 {
+        if distance <= self.threshold {
+            return distance;
+        }
+        let v = ((distance - self.threshold) / self.scale)
+            .powf(Self::POWER)
+            .min(0.999);
+        self.threshold + self.scale * (v / (1.0 - v)).powf(1.0 / Self::POWER)
+    }
 }
 
 impl CameraToSrgb {
@@ -243,6 +257,13 @@ impl CameraToSrgb {
             matrix,
             compression: limits.map(GamutCompression::new),
         })
+    }
+
+    /// (threshold, scale) of each channel's compression, `[0, 0]` where there is none.
+    fn gamut_parameters(&self) -> [[f32; 2]; 3] {
+        self.compression
+            .each_ref()
+            .map(|c| c.as_ref().map_or([0.0; 2], |c| [c.threshold, c.scale]))
     }
 
     #[inline]
@@ -621,6 +642,13 @@ pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
             file_bytes,
             is_monochrome,
         ),
+        gamut: if is_monochrome {
+            [[0.0; 2]; 3]
+        } else {
+            CameraToSrgb::new(&raw_image)
+                .map(|c| c.gamut_parameters())
+                .unwrap_or([[0.0; 2]; 3])
+        },
     })
 }
 
@@ -738,6 +766,34 @@ mod gpu_decode_tests {
                 assert!(q.iter().all(|v| v.is_finite()), "NaN in output");
                 ((q[0] + q[1] + q[2]) / 3.0).max(1.0e-4).log2() as f64
             };
+            // how much of the picture the camera recorded beyond sRGB: the develop pass compressed it into
+            // sRGB, the shader inverts that (same formula as `gamut_residual` in shader.wgsl)
+            let gamut = super::read_as_shot(&bytes).expect("as shot").gamut;
+            eprintln!("{}: gamut compression (threshold, scale) per channel {:?}", path.display(), gamut);
+            if gamut.iter().any(|g| g[1] > 0.0) {
+                let (mut outside, mut deep, mut total) = (0u64, 0u64, 0u64);
+                for y in (0..full.height()).step_by(11) {
+                    for x in (0..full.width()).step_by(11) {
+                        let c = full.get_pixel(x, y).0;
+                        let a = c[0].max(c[1]).max(c[2]);
+                        if a <= 1.0e-4 { continue; }
+                        let mut most = 0.0f32;
+                        for i in 0..3 {
+                            let [t, k] = gamut[i];
+                            let d = (a - c[i]) / a;
+                            let dec = if k <= 0.0 || d <= t { d } else {
+                                let v = ((d.min(1.0) - t) / k).powf(1.2).min(0.999);
+                                t + k * (v / (1.0 - v)).powf(1.0 / 1.2)
+                            };
+                            most = most.max((dec - d) * a / a);
+                        }
+                        total += 1;
+                        if most > 0.01 { outside += 1; }
+                        if most > 0.1 { deep += 1; }
+                    }
+                }
+                eprintln!("{}: {:.2}% of the pixels lie beyond sRGB (relative distance > 0.01), {:.2}% far beyond (> 0.1)", path.display(), 100.0 * outside as f64 / total as f64, 100.0 * deep as f64 / total as f64);
+            }
             let (mut n, mut sx, mut sy, mut sxx, mut syy, mut sxy) = (0f64, 0f64, 0f64, 0f64, 0f64, 0f64);
             for y in (0..fast.height()).step_by(3) {
                 for x in (0..fast.width()).step_by(3) {
@@ -749,6 +805,27 @@ mod gpu_decode_tests {
             eprintln!("{}: full vs fast log-luma correlation {:.4}, mean stops {:.2} / {:.2}", path.display(), corr, sy / n, sx / n);
             assert!(sy / n > -10.0, "full develop is black");
             assert!(corr > 0.9, "full and fast develop disagree");
+        }
+    }
+}
+
+#[cfg(test)]
+mod gamut_tests {
+    use super::GamutCompression;
+
+    #[test]
+    fn decompress_inverts_compress_up_to_the_cameras_gamut_limit() {
+        for limit in [1.1f32, 1.4, 2.0, 3.5] {
+            let c = GamutCompression::new(limit).expect("compression");
+            // the camera's own gamut edge lands exactly on 1 (the sRGB boundary)
+            assert!((c.compress(limit) - 1.0).abs() < 1e-4, "limit {limit}: {}", c.compress(limit));
+            let mut d = 0.0;
+            while d <= limit {
+                let back = c.decompress(c.compress(d));
+                assert!((back - d).abs() < 2e-3 * (1.0 + d), "limit {limit} d {d}: back {back}");
+                d += 0.01;
+            }
+            assert!((c.decompress(1.0) - limit).abs() < 0.02 * limit);
         }
     }
 }

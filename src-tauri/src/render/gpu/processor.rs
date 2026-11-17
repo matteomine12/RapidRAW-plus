@@ -1898,3 +1898,164 @@ pub struct DisplayTextures {
     pub output_texture: wgpu::Texture,
     pub output_texture_view: wgpu::TextureView,
 }
+
+#[cfg(test)]
+mod wide_gamut_tests {
+    use super::*;
+    use crate::decode::as_shot::AsShot;
+    use crate::decode::raw_processing::GamutCompression;
+    use crate::render::color_space::OutputSpace;
+    use crate::render::options::RenderOptions;
+    use crate::render::uniforms::get_all_adjustments_from_json;
+    use glam::Vec3;
+
+    const LIMIT: f32 = 1.6;
+    const W: u32 = 32;
+    const H: u32 = 8;
+
+    /// Linear sRGB colours, including some outside sRGB (negative red or green).
+    const COLOURS: [[f32; 3]; 4] = [
+        [0.20, 0.30, 0.40],   // inside sRGB
+        [0.50, 0.40, 0.10],   // inside sRGB
+        [-0.10, 0.40, 0.35],  // a cyan beyond sRGB
+        [0.10, 0.50, -0.03],  // a yellow-green beyond sRGB (inside P3 and Rec.2020)
+    ];
+
+    /// What the RAW develop pass leaves in the source: the colour compressed into sRGB.
+    fn compressed(colour: [f32; 3]) -> [f32; 3] {
+        let compression = GamutCompression::new(LIMIT).expect("compression");
+        let a = colour[0].max(colour[1]).max(colour[2]);
+        colour.map(|v| a - compression.compress((a - v) / a) * a)
+    }
+
+    fn render(
+        context: &GpuContext,
+        space: OutputSpace,
+        precision: RenderOutputPrecision,
+        json: serde_json::Value,
+    ) -> Vec<[f32; 3]> {
+        let processor = GpuProcessor::new(context.clone(), W, H).expect("processor");
+        let mut halves = Vec::new();
+        for _y in 0..H {
+            for x in 0..W {
+                let c = compressed(COLOURS[(x / (W / 4)) as usize]);
+                halves.extend([f16::from_f32(c[0]), f16::from_f32(c[1]), f16::from_f32(c[2]), f16::from_f32(1.0)]);
+            }
+        }
+        let slot = crate::render::gpu::compute::upload_image(context, (W, H), &halves);
+        let guided = processor.build_guided_coeffs(&slot.view, W, H, 1);
+        let entry = GpuImageEntry {
+            id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
+            texture: slot.texture,
+            texture_view: slot.view,
+            gf_coeffs_view: guided.coeffs,
+            tone_base_view: guided.tone_base,
+            haze_view: guided.haze,
+            airlight_view: guided.airlight,
+            is_raw: 1,
+            width: W,
+            height: H,
+            transform_key: 1,
+            source_identity: 1,
+        };
+        let compression = GamutCompression::new(LIMIT).unwrap();
+        let as_shot = AsShot {
+            gamut: [[compression.threshold, compression.scale]; 3],
+            ..AsShot::reference()
+        };
+        let mut adjustments =
+            get_all_adjustments_from_json(&json, true, as_shot, RenderOptions::default());
+        adjustments.global.set_output_space(space);
+        let mask = processor.mask_view(&[], W, H, None);
+        let (pixels, w, h, _, _) = processor
+            .run(
+                &entry,
+                &mask,
+                RenderRequest {
+                    adjustments,
+                    mask_bitmaps: &[],
+                    mask_cache_key: None,
+                    lut: None,
+                    roi: None,
+                    hsl_probe: false,
+                    motion_blur: Default::default(),
+                },
+                false,
+                precision,
+            )
+            .expect("render");
+        assert_eq!((w, h), (W, H));
+        // one pixel per colour, from the middle of its block, as linear light
+        (0..4)
+            .map(|i| {
+                let at = ((H / 2) * W + i * (W / 4) + W / 8) as usize * 4;
+                let srgb_to_linear = |v: f32| {
+                    if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+                };
+                match &pixels {
+                    RenderedPixels::U8(p) => [0, 1, 2].map(|c| srgb_to_linear(p[at + c] as f32 / 255.0)),
+                    RenderedPixels::U16(p) => [0, 1, 2].map(|c| f16::from_bits(p[at + c]).to_f32()),
+                }
+            })
+            .collect()
+    }
+
+    fn context() -> Option<GpuContext> {
+        match crate::render::gpu::context::test_gpu_context() {
+            Ok(context) => Some(context),
+            Err(e) => {
+                eprintln!("skipped: no GPU ({e})");
+                None
+            }
+        }
+    }
+
+    #[test]
+    fn a_wide_output_recovers_the_colours_the_camera_recorded_beyond_srgb() {
+        let Some(context) = context() else { return };
+        let json = serde_json::json!({});
+        let srgb = render(&context, OutputSpace::Srgb, RenderOutputPrecision::EightBit, json.clone());
+        let p3 = render(&context, OutputSpace::DisplayP3, RenderOutputPrecision::EightBit, json);
+        let to_srgb = OutputSpace::DisplayP3.from_srgb().inverse();
+        for (i, (s, w)) in srgb.iter().zip(&p3).enumerate() {
+            let back = to_srgb * Vec3::from(*w);
+            eprintln!("colour {i}: sRGB render {s:?}, P3 render as sRGB {back:?}");
+            assert!(s.iter().all(|v| v.is_finite()) && w.iter().all(|v| v.is_finite()));
+            if i < 2 {
+                // inside sRGB the wide render shows the same colour
+                for c in 0..3 {
+                    assert!((back[c] - s[c]).abs() < 0.02, "colour {i} channel {c}: {back:?} vs {s:?}");
+                }
+            } else {
+                // outside sRGB the sRGB render clips; the P3 render keeps going past zero in sRGB terms
+                let beyond = back.min_element();
+                assert!(s.iter().all(|v| *v >= -0.001), "sRGB render must stay in gamut {s:?}");
+                assert!(beyond < -0.015, "colour {i} lost its out-of-sRGB part: {back:?}");
+                // and it is a valid P3 colour
+                assert!(w.iter().all(|v| *v >= -0.01), "{w:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn an_hdr_render_in_rec2020_stays_valid_and_keeps_the_wide_colours() {
+        let Some(context) = context() else { return };
+        let json = serde_json::json!({ "hdrEnabled": true, "hdrMaxEv": 3.0 });
+        let sdr_space = render(&context, OutputSpace::Srgb, RenderOutputPrecision::HdrLinear, json.clone());
+        let wide = render(&context, OutputSpace::Rec2020, RenderOutputPrecision::HdrLinear, json);
+        let to_srgb = OutputSpace::Rec2020.from_srgb().inverse();
+        for (i, (s, w)) in sdr_space.iter().zip(&wide).enumerate() {
+            let back = to_srgb * Vec3::from(*w);
+            eprintln!("colour {i}: sRGB HDR {s:?}, Rec.2020 HDR as sRGB {back:?}");
+            assert!(w.iter().all(|v| v.is_finite()));
+            if i < 2 {
+                for c in 0..3 {
+                    assert!((back[c] - s[c]).abs() < 0.02 * (1.0 + s[c]), "colour {i}: {back:?} vs {s:?}");
+                }
+            } else {
+                assert!(back.min_element() < -0.015, "colour {i}: {back:?}");
+                assert!(w.iter().all(|v| *v >= -0.01), "{w:?}");
+            }
+        }
+    }
+}

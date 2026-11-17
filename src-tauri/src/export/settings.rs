@@ -1,3 +1,4 @@
+use crate::render::color_space::OutputSpace;
 use crate::render::gpu::processor::RenderOutputPrecision;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -111,6 +112,10 @@ pub struct ExportSettings {
     /// Transfer function of HDR PNG and AVIF files.
     #[serde(default)]
     pub hdr_transfer: crate::export::hdr_encode::HdrTransfer,
+    /// Colour space of HDR files (Ultra HDR JPEG: sRGB or Display P3; PNG and AVIF: Rec.709/sRGB, Display P3
+    /// or Rec.2020). `None` picks the format's default.
+    #[serde(default)]
+    pub hdr_color_space: Option<crate::render::color_space::OutputSpace>,
 }
 
 fn default_true() -> bool {
@@ -155,6 +160,21 @@ pub struct WatermarkSettings {
     pub scale: f32,
     pub spacing: f32,
     pub opacity: f32,
+}
+
+/// The colour space an HDR export is rendered in: the one asked for if the format supports it, else the
+/// format's default (Rec.2020 for PNG and AVIF, sRGB for JPEG).
+pub fn hdr_output_space(output_format: &str, export_settings: &ExportSettings) -> OutputSpace {
+    let (default, wide_allowed) = match output_format.to_lowercase().as_str() {
+        "png" | "avif" => (OutputSpace::Rec2020, true),
+        "jpg" | "jpeg" => (OutputSpace::Srgb, false),
+        _ => return OutputSpace::Srgb,
+    };
+    match export_settings.hdr_color_space {
+        Some(OutputSpace::Rec2020) if !wide_allowed => default,
+        Some(space) => space,
+        None => default,
+    }
 }
 
 /// Border, padding and watermark are composed in 8/16 bit, so HDR exports skip them (and use the SDR rendition).

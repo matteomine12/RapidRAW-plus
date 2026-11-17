@@ -3,6 +3,7 @@ import {
   BorderBasis,
   DEFAULT_EXPORT_DPI,
   ExportPreset,
+  HdrColorSpace,
   HdrTransfer,
   TiffBitDepth,
   WatermarkAnchor,
@@ -14,6 +15,7 @@ export function useExportSettings() {
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
   const [hdrExport, setHdrExport] = useState(true);
   const [hdrTransfer, setHdrTransfer] = useState<HdrTransfer>('pq');
+  const [hdrColorSpace, setHdrColorSpace] = useState<HdrColorSpace | null>(null);
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -52,6 +54,7 @@ export function useExportSettings() {
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
     setHdrExport(preset.hdrExport ?? true);
     setHdrTransfer(preset.hdrTransfer ?? 'pq');
+    setHdrColorSpace(preset.hdrColorSpace ?? null);
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -92,6 +95,7 @@ export function useExportSettings() {
       tiffBitDepth,
       hdrExport,
       hdrTransfer,
+      hdrColorSpace,
       dpi,
       enableResize,
       resizeMode,
@@ -130,6 +134,7 @@ export function useExportSettings() {
       tiffBitDepth,
       hdrExport,
       hdrTransfer,
+      hdrColorSpace,
       dpi,
       enableResize,
       resizeMode,
@@ -175,6 +180,8 @@ export function useExportSettings() {
     setHdrExport,
     hdrTransfer,
     setHdrTransfer,
+    hdrColorSpace,
+    setHdrColorSpace,
     dpi,
     setDpi,
     enableResize,

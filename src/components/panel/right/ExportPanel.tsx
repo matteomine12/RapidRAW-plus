@@ -23,6 +23,7 @@ import {
   Status,
   ExportState,
   FileFormats,
+  HdrColorSpace,
   HdrTransfer,
   MAX_EXPORT_DPI,
   TiffBitDepth,
@@ -286,6 +287,8 @@ export default function ExportPanel({
     setHdrExport,
     hdrTransfer,
     setHdrTransfer,
+    hdrColorSpace,
+    setHdrColorSpace,
     dpi,
     setDpi,
     enableResize,
@@ -351,6 +354,30 @@ export default function ExportPanel({
     subfolder,
     setSubfolder,
   } = useExportSettings();
+
+  // colour spaces an HDR file can be saved in, the first being the default of the format
+  const hdrColorSpaceOptions = useMemo((): Array<{ label: string; value: HdrColorSpace }> => {
+    const srgb = { label: t('export.file.hdrSpaceSrgb'), value: 'srgb' as const };
+    const p3 = { label: t('export.file.hdrSpaceP3'), value: 'p3' as const };
+    const rec2020 = { label: t('export.file.hdrSpaceRec2020'), value: 'rec2020' as const };
+    switch (fileFormat) {
+      case FileFormats.Instagram:
+        return [p3, srgb];
+      case FileFormats.Jpeg:
+        return [srgb, p3];
+      case FileFormats.Png:
+      case FileFormats.Avif:
+        return [rec2020, p3, srgb];
+      default:
+        return [];
+    }
+  }, [t, fileFormat]);
+  const effectiveHdrColorSpace: HdrColorSpace | undefined = hdrColorSpaceOptions.some(
+    (option) => option.value === hdrColorSpace,
+  )
+    ? (hdrColorSpace ?? undefined)
+    : hdrColorSpaceOptions[0]?.value;
+
 
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
 
@@ -534,6 +561,7 @@ export default function ExportPanel({
       tiffBitDepth,
       hdrExport: hdrExport || fileFormat === FileFormats.Instagram,
       hdrTransfer,
+      hdrColorSpace: effectiveHdrColorSpace,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -590,6 +618,7 @@ export default function ExportPanel({
     tiffBitDepth,
     hdrExport,
     hdrTransfer,
+    effectiveHdrColorSpace,
     enableResize,
     resizeMode,
     resizeValue,
@@ -642,6 +671,7 @@ export default function ExportPanel({
       tiffBitDepth,
       hdrExport: hdrExport || fileFormat === FileFormats.Instagram,
       hdrTransfer,
+      hdrColorSpace: effectiveHdrColorSpace,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -846,18 +876,36 @@ export default function ExportPanel({
                     />
                   )}
                   <Text variant={TextVariants.small}>{t(`export.file.hdrHint.${fileFormat}` as ParseKeys)}</Text>
-                  {hdrExport && (fileFormat === FileFormats.Png || fileFormat === FileFormats.Avif) && (
+                  {(hdrExport || fileFormat === FileFormats.Instagram) &&
+                    (fileFormat === FileFormats.Png || fileFormat === FileFormats.Avif) && (
+                      <div>
+                        <Text variant={TextVariants.label} className="mb-1">
+                          {t('export.file.hdrTransfer')}
+                        </Text>
+                        <Dropdown
+                          options={hdrTransferOptions}
+                          value={hdrTransfer}
+                          onChange={(value) => setHdrTransfer(value as HdrTransfer)}
+                          disabled={isExporting}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                  {(hdrExport || fileFormat === FileFormats.Instagram) && hdrColorSpaceOptions.length > 0 && (
                     <div>
                       <Text variant={TextVariants.label} className="mb-1">
-                        {t('export.file.hdrTransfer')}
+                        {t('export.file.hdrColorSpace')}
                       </Text>
                       <Dropdown
-                        options={hdrTransferOptions}
-                        value={hdrTransfer}
-                        onChange={(value) => setHdrTransfer(value as HdrTransfer)}
+                        options={hdrColorSpaceOptions}
+                        value={effectiveHdrColorSpace ?? hdrColorSpaceOptions[0].value}
+                        onChange={(value) => setHdrColorSpace(value as HdrColorSpace)}
                         disabled={isExporting}
                         className="w-full"
                       />
+                      <Text variant={TextVariants.small} className="mt-1">
+                        {t('export.file.hdrColorSpaceHint')}
+                      </Text>
                     </div>
                   )}
                 </div>

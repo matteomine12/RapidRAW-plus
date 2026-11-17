@@ -12,6 +12,9 @@ use std::sync::{Mutex, OnceLock};
 pub struct AsShot {
     pub white_balance: WhiteBalance,
     pub exposure: RawExposure,
+    /// The RAW develop pass compressed the camera's colours into sRGB per channel (threshold, scale;
+    /// scale 0 = not compressed). The main shader inverts it to recover colours outside sRGB.
+    pub gamut: [[f32; 2]; 3],
 }
 
 impl AsShot {
@@ -19,6 +22,7 @@ impl AsShot {
         Self {
             white_balance: WhiteBalance::reference(),
             exposure: RawExposure::default(),
+            gamut: [[0.0; 2]; 3],
         }
     }
 }

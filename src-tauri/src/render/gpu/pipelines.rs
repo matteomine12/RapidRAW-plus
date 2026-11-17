@@ -605,6 +605,34 @@ mod shader_tests {
         );
     }
 
+    /// The offsets of the wide-gamut fields must match: a mat3 and vec4s are 16-byte aligned in WGSL.
+    #[test]
+    fn wide_gamut_fields_have_the_same_offsets_in_rust_and_wgsl() {
+        let module = validate(include_str!("../../shaders/shader.wgsl"));
+        let members = module
+            .types
+            .iter()
+            .find_map(|(_, ty)| match (&ty.name, &ty.inner) {
+                (Some(n), naga::TypeInner::Struct { members, .. }) if n == "GlobalAdjustments" => {
+                    Some(members.clone())
+                }
+                _ => None,
+            })
+            .expect("GlobalAdjustments");
+        let offset = |name: &str| {
+            members
+                .iter()
+                .find(|m| m.name.as_deref() == Some(name))
+                .unwrap_or_else(|| panic!("member {name}"))
+                .offset as usize
+        };
+        use crate::render::uniforms::GlobalAdjustments as G;
+        assert_eq!(offset("out_matrix"), std::mem::offset_of!(G, out_matrix));
+        assert_eq!(offset("gamut"), std::mem::offset_of!(G, gamut));
+        assert_eq!(offset("out_flags"), std::mem::offset_of!(G, out_flags));
+        assert_eq!(offset("hdr_peak"), std::mem::offset_of!(G, hdr_peak));
+    }
+
     #[test]
     fn high_precision_shader_validates() {
         validate(&high_precision_shader_source());

@@ -1,10 +1,12 @@
 //! HDR export encoders: PNG and AVIF with a PQ or HLG signal (BT.2020, CICP signalled), and Ultra HDR
 //! JPEG (an SDR JPEG plus a gain map, the format Instagram, Threads, Android and Chrome read).
 //!
-//! Input is the HDR render: linear light in sRGB/Rec.709 primaries, 1.0 = SDR white (203 nits), values
-//! above 1.0 are the HDR highlights.
+//! Input is the HDR render: linear light already in the output colour space (the render pipeline converts
+//! it, and rebuilds the colours beyond sRGB the camera recorded), 1.0 = SDR white (203 nits), values above
+//! 1.0 are the HDR highlights.
 
 use crate::export::encode::SRGB_ICC_PROFILE;
+use crate::render::color_space::OutputSpace;
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::PngEncoder;
 use image::{DynamicImage, ImageEncoder, RgbImage};
@@ -58,21 +60,10 @@ pub fn hlg_encode(nits: f32) -> f32 {
     }
 }
 
-/// Rec.709/sRGB primaries to Rec.2020 (linear light).
-fn to_rec2020(rgb: [f32; 3]) -> [f32; 3] {
-    let [r, g, b] = rgb;
-    [
-        0.627_404 * r + 0.329_283 * g + 0.043_313 * b,
-        0.069_097 * r + 0.919_540 * g + 0.011_362 * b,
-        0.016_391 * r + 0.088_013 * g + 0.895_595 * b,
-    ]
-}
-
-/// The non-linear BT.2020 R'G'B' signal (0..1) of a linear sRGB-primaries pixel (1.0 = SDR white).
+/// The non-linear R'G'B' signal (0..1) of a linear pixel (1.0 = SDR white) in the output space.
 fn signal(rgb: [f32; 3], transfer: HdrTransfer) -> [f32; 3] {
-    let wide = to_rec2020([rgb[0].max(0.0), rgb[1].max(0.0), rgb[2].max(0.0)]);
-    wide.map(|v| {
-        let nits = v * SDR_WHITE_NITS;
+    rgb.map(|v| {
+        let nits = v.max(0.0) * SDR_WHITE_NITS;
         match transfer {
             HdrTransfer::Pq => pq_encode(nits),
             HdrTransfer::Hlg => hlg_encode(nits),
@@ -86,10 +77,11 @@ fn finite(v: f32) -> f32 {
 
 // ---------------------------------------------------------------------------------------- PNG
 
-/// 16-bit PNG with a PQ or HLG signal in BT.2020, signalled with a `cICP` chunk.
+/// 16-bit PNG with a PQ or HLG signal in `space`, signalled with a `cICP` chunk.
 pub fn encode_hdr_png(
     image: &DynamicImage,
     transfer: HdrTransfer,
+    space: OutputSpace,
     dpi: Option<u16>,
 ) -> Result<Vec<u8>, String> {
     let (width, height) = (image.width(), image.height());
@@ -114,8 +106,12 @@ pub fn encode_hdr_png(
             image::ExtendedColorType::Rgb16,
         )
         .map_err(|e| format!("Failed to encode HDR PNG: {}", e))?;
-    // primaries 9 (BT.2020), transfer 16 (PQ) / 18 (HLG), matrix 0 (RGB), full range
-    crate::metadata::export_metadata::insert_png_chunk(&mut bytes, b"cICP", &[9, transfer.cicp(), 0, 1]);
+    // primaries of the space, transfer 16 (PQ) / 18 (HLG), matrix 0 (RGB), full range
+    crate::metadata::export_metadata::insert_png_chunk(
+        &mut bytes,
+        b"cICP",
+        &[space.cicp_primaries(), transfer.cicp(), 0, 1],
+    );
     if let Some(dpi) = dpi {
         let ppm = (dpi as f64 / 0.0254).round() as u32;
         let mut phys = Vec::with_capacity(9);
@@ -129,12 +125,19 @@ pub fn encode_hdr_png(
 
 // ---------------------------------------------------------------------------------------- AVIF
 
-/// 10-bit AVIF with a PQ or HLG signal in BT.2020 (YCbCr 4:4:4, BT.2020 non-constant luminance).
+/// 10-bit AVIF with a PQ or HLG signal in `space` (YCbCr 4:4:4; BT.2020 non-constant luminance for Rec.2020,
+/// BT.709 coefficients for the other spaces).
 pub fn encode_hdr_avif(
     image: &DynamicImage,
     transfer: HdrTransfer,
+    space: OutputSpace,
     quality: u8,
 ) -> Result<Vec<u8>, String> {
+    let (kr, kb, matrix, matrix_code) = match space {
+        OutputSpace::Rec2020 => (0.2627f32, 0.0593f32, ravif::MatrixCoefficients::BT2020NCL, 9u8),
+        _ => (0.2126f32, 0.0722f32, ravif::MatrixCoefficients::BT709, 1u8),
+    };
+    let kg = 1.0 - kr - kb;
     let (width, height) = (image.width() as usize, image.height() as usize);
     let rgb = image.to_rgb32f();
     let planes: Vec<[u16; 3]> = rgb
@@ -142,9 +145,9 @@ pub fn encode_hdr_avif(
         .par_chunks(3)
         .map(|px| {
             let [r, g, b] = signal([finite(px[0]), finite(px[1]), finite(px[2])], transfer);
-            let y = 0.2627 * r + 0.6780 * g + 0.0593 * b;
-            let cb = (b - y) / 1.8814;
-            let cr = (r - y) / 1.4746;
+            let y = kr * r + kg * g + kb * b;
+            let cb = (b - y) / (2.0 * (1.0 - kb));
+            let cr = (r - y) / (2.0 * (1.0 - kr));
             let code = |v: f32| (v * 1023.0 + 0.5).clamp(0.0, 1023.0) as u16;
             [code(y), code(cb + 0.5), code(cr + 0.5)]
         })
@@ -159,11 +162,11 @@ pub fn encode_hdr_avif(
             planes,
             None::<[u16; 0]>,
             ravif::PixelRange::Full,
-            ravif::MatrixCoefficients::BT2020NCL,
+            matrix,
         )
         .map_err(|e| format!("Failed to encode HDR AVIF: {}", e))?;
     let mut bytes = encoded.avif_file;
-    set_avif_colr(&mut bytes, 9, transfer.cicp(), 9)?;
+    set_avif_colr(&mut bytes, space.cicp_primaries(), transfer.cicp(), matrix_code)?;
     Ok(bytes)
 }
 
@@ -211,6 +214,7 @@ pub fn encode_ultra_hdr(
     sdr: &DynamicImage,
     hdr: &DynamicImage,
     quality: u8,
+    space: OutputSpace,
     metadata: Option<&dyn Fn(&mut Vec<u8>) -> Result<(), String>>,
 ) -> Result<Vec<u8>, String> {
     let sdr = sdr.to_rgb8();
@@ -231,7 +235,7 @@ pub fn encode_ultra_hdr(
     let mut primary = Vec::new();
     let mut encoder = JpegEncoder::new_with_quality(Cursor::new(&mut primary), quality);
     encoder
-        .set_icc_profile(SRGB_ICC_PROFILE.to_vec())
+        .set_icc_profile(icc_profile(space)?)
         .map_err(|e| e.to_string())?;
     encoder
         .write_image(sdr.as_raw(), sdr.width(), sdr.height(), image::ExtendedColorType::Rgb8)
@@ -240,6 +244,16 @@ pub fn encode_ultra_hdr(
         write_metadata(&mut primary)?;
     }
     assemble(primary, &gain_jpeg, &params)
+}
+
+/// The ICC profile of the base image: sRGB, or Display P3 (same transfer curve, wider primaries).
+fn icc_profile(space: OutputSpace) -> Result<Vec<u8>, String> {
+    match space {
+        OutputSpace::DisplayP3 => moxcms::ColorProfile::new_display_p3()
+            .encode()
+            .map_err(|e| format!("Failed to build the Display P3 profile: {e}")),
+        _ => Ok(SRGB_ICC_PROFILE.to_vec()),
+    }
 }
 
 /// Per-channel gain map at half resolution: log2((hdr + o) / (sdr + o)) scaled to 0..255.
@@ -486,9 +500,12 @@ mod tests {
     #[test]
     fn png_carries_cicp_and_16_bits() {
         let (_, hdr) = scene(32, 8);
-        let bytes = encode_hdr_png(&hdr, HdrTransfer::Pq, Some(300)).unwrap();
+        let bytes = encode_hdr_png(&hdr, HdrTransfer::Pq, OutputSpace::Rec2020, Some(300)).unwrap();
         let at = bytes.windows(4).position(|w| w == b"cICP").expect("cICP chunk");
         assert_eq!(&bytes[at + 4..at + 8], &[9, 16, 0, 1]);
+        let p3 = encode_hdr_png(&hdr, HdrTransfer::Hlg, OutputSpace::DisplayP3, None).unwrap();
+        let at = p3.windows(4).position(|w| w == b"cICP").unwrap();
+        assert_eq!(&p3[at + 4..at + 8], &[12, 18, 0, 1]);
         let decoded = image::load_from_memory(&bytes).unwrap();
         assert!(matches!(decoded, DynamicImage::ImageRgb16(_)));
         // brighter input gives a larger signal
@@ -499,19 +516,23 @@ mod tests {
     #[test]
     fn avif_is_labelled_bt2020_pq() {
         let (_, hdr) = scene(32, 16);
-        let bytes = encode_hdr_avif(&hdr, HdrTransfer::Pq, 80).unwrap();
+        let bytes = encode_hdr_avif(&hdr, HdrTransfer::Pq, OutputSpace::Rec2020, 80).unwrap();
         assert_eq!(&bytes[4..8], b"ftyp");
         let at = bytes.windows(8).position(|w| &w[..4] == b"colr" && &w[4..] == b"nclx").unwrap();
         assert_eq!(&bytes[at + 8..at + 14], &[0, 9, 0, 16, 0, 9]);
-        let hlg = encode_hdr_avif(&hdr, HdrTransfer::Hlg, 80).unwrap();
+        let hlg = encode_hdr_avif(&hdr, HdrTransfer::Hlg, OutputSpace::Rec2020, 80).unwrap();
         let at = hlg.windows(8).position(|w| &w[..4] == b"colr" && &w[4..] == b"nclx").unwrap();
         assert_eq!(&hlg[at + 8..at + 14], &[0, 9, 0, 18, 0, 9]);
+        // Display P3 primaries with the BT.709 matrix
+        let p3 = encode_hdr_avif(&hdr, HdrTransfer::Pq, OutputSpace::DisplayP3, 80).unwrap();
+        let at = p3.windows(8).position(|w| &w[..4] == b"colr" && &w[4..] == b"nclx").unwrap();
+        assert_eq!(&p3[at + 8..at + 14], &[0, 12, 0, 16, 0, 1]);
     }
 
     #[test]
     fn ultra_hdr_has_a_valid_container_and_recovers_the_hdr_image() {
         let (sdr, hdr) = scene(96, 48);
-        let bytes = encode_ultra_hdr(&sdr, &hdr, 95, None).unwrap();
+        let bytes = encode_ultra_hdr(&sdr, &hdr, 95, OutputSpace::Srgb, None).unwrap();
         assert_eq!(&bytes[..2], &[0xFF, 0xD8]);
 
         // the MPF entry points at the second image
@@ -566,7 +587,10 @@ mod tests {
         let sdr = DynamicImage::ImageRgb8(image::RgbImage::from_pixel(16, 16, image::Rgb([120, 120, 120])));
         let lin = srgb_to_linear(120.0 / 255.0);
         let hdr = DynamicImage::ImageRgb32F(image::Rgb32FImage::from_pixel(16, 16, image::Rgb([lin; 3])));
-        let bytes = encode_ultra_hdr(&sdr, &hdr, 90, None).unwrap();
+        let bytes = encode_ultra_hdr(&sdr, &hdr, 90, OutputSpace::DisplayP3, None).unwrap();
         assert!(bytes.len() > 100);
+        // the base image carries a Display P3 profile
+        let icc = icc_profile(OutputSpace::DisplayP3).unwrap();
+        assert!(bytes.windows(icc.len().min(64)).any(|w| w == &icc[..icc.len().min(64)]));
     }
 }

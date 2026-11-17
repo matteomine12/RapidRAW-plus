@@ -1043,6 +1043,11 @@
       "hdrTransfer": "HDR signal",
       "hdrTransferPq": "PQ (HDR10)",
       "hdrTransferHlg": "HLG",
+      "hdrColorSpace": "Colour space",
+      "hdrSpaceSrgb": "sRGB",
+      "hdrSpaceP3": "Display P3",
+      "hdrSpaceRec2020": "Rec. 2020",
+      "hdrColorSpaceHint": "Wider than sRGB: colours the camera recorded beyond sRGB are kept (RAW files only) and the image is saved in this space.",
       "hdrHint": {
         "instagram": "Ultra HDR JPEG for Instagram and Threads: the normal JPEG plus a gain map that adds the HDR highlights. Turn on HDR in the edit (Basic panel) to get the HDR version; without it this is a regular JPEG. Border, padding and watermark are not applied.",
         "jpeg": "Ultra HDR JPEG: the normal JPEG plus a gain map. Shows as HDR on Instagram, Threads, Android and Chrome, and as a regular JPEG everywhere else.",
