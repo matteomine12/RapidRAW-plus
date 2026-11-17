@@ -27,7 +27,10 @@
     radial-gradient(110vmax 80vmax at 20% 25%, var(--photo-c1) 0%, transparent 100%),
     radial-gradient(100vmax 75vmax at 80% 30%, var(--photo-c2) 0%, transparent 100%),
     radial-gradient(110vmax 80vmax at 50% 85%, var(--photo-c3) 0%, transparent 100%),
-    color-mix(in oklab, var(--photo-c2) 55%, rgb(10 10 14));
+    linear-gradient(
+      color-mix(in oklab, var(--photo-c2) 55%, rgb(10 10 14)),
+      color-mix(in oklab, var(--photo-c2) 55%, rgb(10 10 14))
+    );
 }
 
 /* Every former flat-grey panel now shows the viewport-fixed photo gradient under a contrast scrim. */
