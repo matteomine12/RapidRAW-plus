@@ -37,6 +37,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import { useEditorActions } from '../../hooks/useEditorActions';
+import { SPRING } from '../../utils/motion';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
@@ -129,7 +130,7 @@ const BokehShapeSwitch = ({ selectedShape, onShapeChange }: BokehShapeSwitchProp
             className="absolute top-0 bottom-0 z-0 bg-accent"
             style={{ borderRadius: 6 }}
             animate={bubbleStyle}
-            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+            transition={SPRING.standard}
           />
           {shapeOptions.map((shape) => {
             const Icon = shape.icon;

@@ -7,6 +7,7 @@ import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { SPRING } from '../../utils/motion';
 
 interface CopyPasteSettingsModalProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ const PasteModeSwitch = ({ selectedMode, onModeChange, isVisible }: PasteModeSwi
         className="absolute top-1 bottom-1 z-0 bg-accent shadow-xs"
         style={{ borderRadius: 6 }}
         animate={bubbleStyle}
-        transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+        transition={SPRING.standard}
       />
       {pasteModeOptions.map((option) => (
         <button

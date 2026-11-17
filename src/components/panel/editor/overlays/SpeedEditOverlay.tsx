@@ -10,6 +10,7 @@ import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../
 import { SpeedEditTarget } from '../../../../types/editor';
 import { Coord, DEFAULT_SPEED_EDIT_ADJUSTMENTS } from '../../../../utils/adjustments';
 import { Panel, PanelRegion } from '../../../../types/ui';
+import { SPRING } from '../../../../utils/motion';
 
 const DRAG_RANGE_PX = 400;
 const HUD_OFFSET = 16;
@@ -25,7 +26,7 @@ const NOTICE_DURATION_MS = 1200;
 const TAP_DURATION_MS = 250;
 const CYCLE_DIRECTIONS: Record<string, number> = { [PREVIOUS_KEY]: -1, [NEXT_KEY]: 1 };
 const NUDGE_DIRECTIONS: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1 };
-const HUD_TRANSITION = { type: 'spring', bounce: 0, duration: 0.3 } as const;
+const HUD_TRANSITION = SPRING.standard;
 const HUD_ITEM = {
   enter: (direction: number) => ({ x: `${200 * direction}%`, opacity: 0.5 }),
   current: { x: 0, opacity: 1 },

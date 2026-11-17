@@ -7,6 +7,7 @@ import { TextVariants } from '../../types/typography';
 import Switch from '../ui/Switch';
 import { Preset } from '../../types/editor';
 import { ADJUSTMENT_GROUPS } from '../../utils/adjustments';
+import { SPRING } from '../../utils/motion';
 
 interface ConfigurePresetModalProps {
   isOpen: boolean;
@@ -72,7 +73,7 @@ const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => 
           className="absolute top-0 bottom-0 z-0 bg-accent"
           style={{ borderRadius: 4 }}
           animate={bubbleStyle}
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+          transition={SPRING.standard}
         />
         {presetTypeOptions.map((option) => (
           <button

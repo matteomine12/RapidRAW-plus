@@ -52,6 +52,7 @@ import { JobKind, useProcessStore } from './store/useProcessStore';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useThumbnails } from './hooks/useThumbnails';
+import { usePhotoPalette } from './hooks/usePhotoPalette';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTauriListeners } from './hooks/useTauriListeners';
@@ -255,6 +256,7 @@ function App() {
   const [thumbnailSize, setThumbnailSize] = useState(defaultThumbnailSize);
   const [thumbnailAspectRatio, setThumbnailAspectRatio] = useState(ThumbnailAspectRatio.Contain);
 
+  usePhotoPalette();
   const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
 
   const transformWrapperRef = useRef<any>(null);

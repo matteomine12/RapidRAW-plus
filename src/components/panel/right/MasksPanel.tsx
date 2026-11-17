@@ -90,6 +90,7 @@ import { useEditorActions } from '../../../hooks/useEditorActions';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
 import type { ParseKeys } from 'i18next';
+import { SPRING } from '../../../utils/motion';
 
 interface DragData {
   type: 'Container' | 'SubMask' | 'Creation';
@@ -1335,7 +1336,7 @@ function DraggableGridItem({ maskType, onClick, onRightClick, activeMaskContaine
         ${isDragging ? 'opacity-50' : ''}`}
       data-tooltip={tooltip}
       whileTap={{ scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      transition={SPRING.standard}
     >
       <maskType.icon size={24} />
       <Text

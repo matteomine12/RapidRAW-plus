@@ -64,6 +64,7 @@ import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
 import { applyUiScale, clampUiScale, getDevicePixelRatio, UI_SCALE_PRESETS } from '../../utils/displayScale';
 import type { ParseKeys } from 'i18next';
+import { SPRING } from '../../utils/motion';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -353,7 +354,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
               layoutId="ai-provider-switch-bubble"
               className="absolute inset-0 z-0 bg-accent"
               style={{ borderRadius: 6 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              transition={SPRING.standard}
             />
           )}
           <span className="relative z-10 flex items-center">
@@ -528,7 +529,7 @@ const CanvasInputModeSwitch = ({ mode, onModeChange }: CanvasInputModeSwitchProp
               layoutId="canvas-input-mode-switch-bubble"
               className="absolute inset-0 z-0 bg-accent"
               style={{ borderRadius: 6 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              transition={SPRING.standard}
             />
           )}
           <span className="relative z-10 flex items-center">
@@ -577,7 +578,7 @@ const PreviewModeSwitch = ({ mode, onModeChange }: PreviewModeSwitchProps) => {
               layoutId="preview-mode-switch-bubble"
               className="absolute inset-0 z-0 bg-accent"
               style={{ borderRadius: 6 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              transition={SPRING.standard}
             />
           )}
           <span className="relative z-10 flex items-center">
@@ -920,7 +921,7 @@ export default function SettingsPanel({
   const effectiveRootPaths = rootPaths?.length > 0 ? rootPaths : appSettings?.rootFolders || [];
 
   const shortcutTagVariants: Variants = {
-    visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } },
+    visible: { opacity: 1, scale: 1, transition: SPRING.standard },
     exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
   };
 
@@ -1061,7 +1062,7 @@ export default function SettingsPanel({
                       layoutId="settings-category-switch-bubble"
                       className="absolute inset-0 z-0 bg-accent"
                       style={{ borderRadius: 6 }}
-                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                      transition={SPRING.standard}
                     />
                   )}
                   <span className="relative z-10 flex items-center">

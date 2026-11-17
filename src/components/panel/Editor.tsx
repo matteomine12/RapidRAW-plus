@@ -1690,8 +1690,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   useEffect(() => {
     const rootStyle = getComputedStyle(document.documentElement);
-    const bgPrimaryStr = rootStyle.getPropertyValue('--app-bg-primary') || 'rgb(24, 24, 24)';
-    const bgSecondaryStr = rootStyle.getPropertyValue('--app-bg-secondary') || 'rgb(35, 35, 35)';
+    const bgPrimaryStr = rootStyle.getPropertyValue('--app-canvas-bg') || 'rgb(14, 14, 17)';
+    const bgSecondaryStr = rootStyle.getPropertyValue('--app-canvas-bg') || 'rgb(14, 14, 17)';
     const isNeutralGrey = appSettings?.editorNeutralGreyBg ?? false;
 
     wgpuStateRef.current = {

@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import Text from './Text';
 import { TextVariants } from '../../types/typography';
+import { SPRING } from '../../utils/motion';
 
 interface SwitchProps {
   checked: boolean;
@@ -38,11 +39,7 @@ const Switch = ({
   const generatedId = useId();
   const uniqueId = id ?? generatedId;
 
-  const spring = {
-    type: 'spring',
-    stiffness: 700,
-    damping: 30,
-  } as const;
+  const spring = SPRING.standard;
 
   return (
     <label

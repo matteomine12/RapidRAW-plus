@@ -628,7 +628,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
           </Text>
           <div className="bg-surface border border-surface rounded-xl p-3.5 flex flex-col gap-3 cursor-default relative transition-all">
             <div className="flex justify-between items-center gap-4 relative z-10">
-              <Text weight={TextWeights.semibold} color={TextColors.primary} className="truncate drop-shadow-sm">
+              <Text weight={TextWeights.semibold} color={TextColors.primary} className="truncate">
                 {isConnected ? t('tethering.cameraConnected') : t('tethering.selectCamera')}
               </Text>
               {isConnected && !liveViewEnabled && (
@@ -643,7 +643,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
 
             {isConnected && (
               <div className="flex flex-col gap-1.5 relative z-10">
-                <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate drop-shadow-sm">
+                <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
                   {selectedCamera || (cameras.length > 0 ? cameras[0] : t('tethering.noCameraDetected'))}
                 </Text>
                 {batterySetting && <BatteryIndicator value={batterySetting.current_value} />}

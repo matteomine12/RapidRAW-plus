@@ -67,6 +67,7 @@ import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useCloudUsage } from '../../../hooks/useCloudUsage';
 import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
+import { SPRING } from '../../../utils/motion';
 
 export const STANDALONE_MASK_TYPES: Mask[] = [Mask.Clone, Mask.Heal, Mask.Liquify, Mask.Retouch];
 
@@ -284,7 +285,7 @@ const CloneHealControls = ({
               className="absolute top-0 bottom-0 z-0 bg-accent"
               style={{ borderRadius: 6 }}
               animate={bubbleStyle}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              transition={SPRING.standard}
             />
             {modes.map((mode) => (
               <button
@@ -1514,7 +1515,7 @@ function DraggableGridItem({ maskType, isGenerating, onClick }: any) {
           : t('editor.ai.createNewTooltip', { name: formatMaskTypeName(maskType.type) })
       }
       whileTap={{ scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+      transition={SPRING.standard}
     >
       <maskType.icon size={24} />
       <Text

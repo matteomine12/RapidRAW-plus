@@ -42,6 +42,7 @@ import SettingsPanel from './SettingsPanel';
 
 import LibraryGrid from './library/LibraryGrid';
 import { JobsMenu, SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
+import { SPRING } from '../../utils/motion';
 
 interface MainLibraryProps {
   activePath: string | null;
@@ -122,7 +123,7 @@ function DisplayModeSwitch({ displayMode, setDisplayMode, t }: DisplayModeSwitch
             x: `${safeIndex * 100}%`,
             width: `${100 / options.length}%`,
           }}
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+          transition={SPRING.standard}
         />
         {options.map((opt) => {
           const Icon = opt.Icon;
@@ -372,7 +373,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                       variant={TextVariants.heading}
                       color={TextColors.secondary}
                       weight={TextWeights.normal}
-                      className="mb-10 max-w-md drop-shadow-sm"
+                      className="mb-10 max-w-md"
                     >
                       {hasLastPath ? (
                         <>
@@ -427,7 +428,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                   <Text
                     variant={TextVariants.small}
                     as="div"
-                    className="absolute bottom-8 left-8 lg:left-16 space-y-1 z-10 drop-shadow-sm"
+                    className="absolute bottom-8 left-8 lg:left-16 space-y-1 z-10"
                   >
                     <p>
                       {t('library.splash.imagesBy')}{' '}

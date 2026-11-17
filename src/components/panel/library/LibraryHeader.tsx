@@ -62,6 +62,7 @@ import Dropdown from '../../ui/Dropdown';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useUIStore } from '../../../store/useUIStore';
 import { ADVANCED_QUERY_REGEX } from '../../../hooks/useSortedLibrary';
+import { SPRING } from '../../../utils/motion';
 
 function DropdownMenu({ buttonContent, buttonTitle, children, contentClassName = 'w-56', onOpenChange }: any) {
   const [isOpen, setIsOpen] = useState(false);
@@ -157,7 +158,7 @@ const SegmentedSwitch = ({ options, value, onChange }: SegmentedSwitchProps) => 
           style={{ borderRadius: 6 }}
           animate={bubbleStyle}
           initial={false}
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+          transition={SPRING.standard}
         />
         {options.map((option) => (
           <button
@@ -225,7 +226,7 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions, operator
             style={{ borderRadius: 6 }}
             animate={bubbleStyle}
             initial={false}
-            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+            transition={SPRING.standard}
           />
 
           <button
@@ -414,7 +415,7 @@ export function SearchInput({ indexingProgress, isIndexing }: any) {
       animate={{ width: isActive ? calculatedWidth : INACTIVE_WIDTH }}
       className="relative flex items-center bg-surface rounded-md h-12 overflow-hidden"
       initial={false}
-      transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+      transition={SPRING.standard}
       onClick={() => inputRef.current?.focus()}
     >
       <button

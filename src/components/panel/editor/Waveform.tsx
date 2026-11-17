@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { DisplayMode } from '../../../utils/adjustments';
 import { useHdrDisplayInfo } from '../../../hooks/useHdrDisplayInfo';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { SPRING } from '../../../utils/motion';
 
 interface WaveformProps {
   hasWaveform: boolean;
@@ -690,7 +691,7 @@ function Waveform({
                       <motion.div
                         layoutId="waveform-mode-indicator"
                         className={`absolute inset-0 ${bgClass} rounded-lg`}
-                        transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                        transition={SPRING.standard}
                       />
                     )}
                     <span className="relative z-10">{label}</span>

@@ -154,7 +154,7 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
             {t('modals.renameFile.cancel')}
           </button>
           <button
-            className="px-4 py-2 rounded-md bg-accent shadow-shiny text-button-text font-semibold hover:bg-accent-hover disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 rounded-md bg-accent text-button-text font-semibold hover:bg-accent-hover disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed transition-colors"
             disabled={!nameTemplate.trim()}
             onClick={handleSave}
           >

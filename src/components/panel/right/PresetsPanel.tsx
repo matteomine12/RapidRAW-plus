@@ -53,6 +53,7 @@ import { OPTION_SEPARATOR, type Option } from '../../../types/ui';
 import { Preset } from '../../../types/editor';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { debouncedSave, useEditorActions } from '../../../hooks/useEditorActions';
+import { SPRING } from '../../../utils/motion';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -450,7 +451,7 @@ function DraggablePresetItem({
         {...attributes}
         className="cursor-grab"
         whileTap={{ scale: isActive ? 1 : 0.98 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        transition={SPRING.standard}
       >
         <PresetItemDisplay
           preset={preset}

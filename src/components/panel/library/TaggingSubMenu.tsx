@@ -8,6 +8,7 @@ import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
+import { SPRING } from '../../../utils/motion';
 
 interface TaggingSubMenuProps {
   paths: string[];
@@ -20,7 +21,7 @@ interface TaggingSubMenuProps {
 const USER_TAG_PREFIX = 'user:';
 
 const tagVariants: Variants = {
-  visible: { opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 500, damping: 30 } },
+  visible: { opacity: 1, scale: 1, transition: SPRING.standard },
   exit: { opacity: 0, scale: 0.8, transition: { duration: 0.15 } },
 };
 

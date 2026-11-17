@@ -43,6 +43,7 @@ import { useUIStore } from '../../../store/useUIStore';
 import ImmichExportOptions, { useImmichExportAvailable, useImmichExportChoice } from '../../immich/ImmichExportOptions';
 import { prepareImmichExport } from '../../../utils/immichApi';
 import { formatBytes } from '../../../utils/formatBytes';
+import { SPRING } from '../../../utils/motion';
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -1349,7 +1350,7 @@ export default function ExportPanel({
         </Text>
         <motion.div
           whileTap={!(isCancelling || (status !== Status.Exporting && !canExport)) ? { scale: 0.98 } : undefined}
-          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+          transition={SPRING.standard}
           className="w-full"
         >
           <Button

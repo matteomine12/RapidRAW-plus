@@ -19,6 +19,7 @@ import {
 import { Panel, PanelRegion } from '../../types/ui';
 import { getRegionActivePanel, isPanelAvailable, SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 import type { ParseKeys } from 'i18next';
+import { SPRING } from '../../utils/motion';
 
 export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Metadata]: Info,
@@ -103,7 +104,7 @@ export function PanelTabButton({
         <motion.div
           layoutId={indicatorId}
           className="absolute inset-0 bg-surface rounded-md"
-          transition={isInstantTransition ? { duration: 0 } : { type: 'spring', bounce: 0.2, duration: 0.4 }}
+          transition={isInstantTransition ? { duration: 0 } : SPRING.standard}
         />
       )}
       <Icon size={isCompact ? 18 : 20} className="relative z-10 pointer-events-none" />

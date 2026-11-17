@@ -449,7 +449,7 @@ export default function MetadataPanel() {
                 )}
 
                 <div className="flex justify-between items-start gap-4 relative z-10">
-                  <Text weight={TextWeights.semibold} color={TextColors.primary} className="truncate drop-shadow-sm">
+                  <Text weight={TextWeights.semibold} color={TextColors.primary} className="truncate">
                     {fileName || '-'}
                   </Text>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -468,7 +468,7 @@ export default function MetadataPanel() {
                 </div>
 
                 <div className="flex flex-col gap-0.5 relative z-10">
-                  <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate drop-shadow-sm">
+                  <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
                     {selectedImage.width && selectedImage.height
                       ? t('editor.metadata.fileInfo.dimensions', {
                           width: selectedImage.width,
@@ -477,7 +477,7 @@ export default function MetadataPanel() {
                         })
                       : t('editor.metadata.fileInfo.emptyDimensions')}
                   </Text>
-                  <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate drop-shadow-sm">
+                  <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
                     {selectedImage.exif?.DateTimeOriginal || '-'}
                   </Text>
                 </div>

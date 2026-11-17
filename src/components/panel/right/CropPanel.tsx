@@ -55,6 +55,7 @@ import { useUIStore } from '../../../store/useUIStore';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { OverlayMode } from '../../../types/editor';
+import { SPRING } from '../../../utils/motion';
 
 const BASE_RATIO = 1.618;
 const RATIO_TOLERANCE = 0.01;
@@ -810,7 +811,7 @@ export default function CropPanel() {
                           : preset.tooltip
                       }
                       whileTap={{ scale: 0.98 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                      transition={SPRING.standard}
                     >
                       <Text color={isPresetActive(preset) ? TextColors.button : TextColors.secondary}>
                         {preset.name}
@@ -847,7 +848,7 @@ export default function CropPanel() {
                   }}
                   data-tooltip={t('editor.crop.presets.custom.tooltip')}
                   whileTap={{ scale: 0.98 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  transition={SPRING.standard}
                 >
                   <Text color={isCustomActive ? TextColors.button : TextColors.secondary}>
                     {t('editor.crop.presets.custom.name')}
@@ -965,7 +966,7 @@ export default function CropPanel() {
                   onClick={() => handleRotate(-90)}
                   data-tooltip={t('editor.crop.tooltips.rotateLeft')}
                   whileTap={{ scale: 0.98 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  transition={SPRING.standard}
                 >
                   <RotateCcw size={20} className="transition-none" />
                   <span className="text-xs mt-2 transition-none">{t('editor.crop.labels.rotateLeft')}</span>
@@ -975,7 +976,7 @@ export default function CropPanel() {
                   onClick={() => handleRotate(90)}
                   data-tooltip={t('editor.crop.tooltips.rotateRight')}
                   whileTap={{ scale: 0.98 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  transition={SPRING.standard}
                 >
                   <RotateCw size={20} className="transition-none" />
                   <span className="text-xs mt-2 transition-none">{t('editor.crop.labels.rotateRight')}</span>
@@ -995,7 +996,7 @@ export default function CropPanel() {
                   }
                   data-tooltip={t('editor.crop.tooltips.flipHoriz')}
                   whileTap={{ scale: 0.98 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  transition={SPRING.standard}
                 >
                   <FlipHorizontal size={20} className="transition-none" />
                   <span className="text-xs mt-2 transition-none">{t('editor.crop.labels.flipHoriz')}</span>
@@ -1010,7 +1011,7 @@ export default function CropPanel() {
                   onClick={() => setAdjustments((prev: Adjustments) => ({ ...prev, flipVertical: !prev.flipVertical }))}
                   data-tooltip={t('editor.crop.tooltips.flipVert')}
                   whileTap={{ scale: 0.98 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  transition={SPRING.standard}
                 >
                   <FlipVertical size={20} className="transition-none" />
                   <span className="text-xs mt-2 transition-none">{t('editor.crop.labels.flipVert')}</span>
@@ -1057,7 +1058,7 @@ export default function CropPanel() {
                               type="button"
                               onClick={() => setEditor({ isGuidedPerspectiveActive: !isGuidedPerspectiveActive })}
                               whileTap={{ scale: 0.98 }}
-                              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                              transition={SPRING.standard}
                               className={clsx(
                                 'w-full flex items-center justify-center p-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors',
                                 isGuidedPerspectiveActive
@@ -1340,7 +1341,7 @@ export default function CropPanel() {
                               className="absolute top-0 bottom-0 z-0 bg-accent"
                               style={{ borderRadius: 6 }}
                               animate={modeBubbleStyle}
-                              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                              transition={SPRING.standard}
                             />
                             <button
                               onClick={() => handleModeChange('auto')}
