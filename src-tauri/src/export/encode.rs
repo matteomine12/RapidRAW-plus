@@ -97,6 +97,63 @@ pub fn save_image_with_metadata(
     Ok(())
 }
 
+/// Writes an Ultra HDR JPEG: `sdr` is the base image, `hdr` its linear float rendition.
+pub fn save_ultra_hdr(
+    sdr: &DynamicImage,
+    hdr: &DynamicImage,
+    output_path: &std::path::Path,
+    source_path_str: &str,
+    export_settings: &ExportSettings,
+) -> Result<(), String> {
+    let source = source_path_str.to_string();
+    let (keep, strip_gps, dpi) = (
+        export_settings.keep_metadata,
+        export_settings.strip_gps,
+        export_settings.dpi,
+    );
+    let write_metadata = move |bytes: &mut Vec<u8>| {
+        export_metadata::write_image_with_metadata(
+            bytes,
+            &source,
+            "jpg",
+            keep,
+            strip_gps,
+            &export_metadata::ExportXmp::default(),
+            dpi,
+        )
+    };
+    let image_bytes = crate::export::hdr_encode::encode_ultra_hdr(
+        sdr,
+        hdr,
+        export_settings.jpeg_quality,
+        Some(&write_metadata),
+    )?;
+
+    #[cfg(target_os = "android")]
+    {
+        let file_name = output_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| "Missing Android export file name".to_string())?;
+        crate::platform::android::save_image_bytes_to_android_gallery(
+            file_name,
+            "image/jpeg",
+            &image_bytes,
+        )?;
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create folder '{}': {}", parent.display(), e))?;
+        }
+        fs::write(output_path, image_bytes)
+            .map_err(|e| format!("Failed to write file to '{}': {}", output_path.display(), e))?;
+    }
+    Ok(())
+}
+
 #[cfg(target_os = "android")]
 pub fn mime_type_for_extension(extension: &str) -> &'static str {
     match extension {
@@ -185,6 +242,13 @@ pub fn encode_image_to_bytes(
                 .map_err(|e| e.to_string())?;
         }
         "png" => {
+            if matches!(image, DynamicImage::ImageRgba32F(_)) {
+                return crate::export::hdr_encode::encode_hdr_png(
+                    image,
+                    export_settings.hdr_transfer,
+                    export_settings.dpi,
+                );
+            }
             let converted;
             let image_to_encode = if image.as_rgb32f().is_some() {
                 converted = DynamicImage::ImageRgb16(image.to_rgb16());
@@ -229,6 +293,13 @@ pub fn encode_image_to_bytes(
             );
         }
         "avif" => {
+            if matches!(image, DynamicImage::ImageRgba32F(_)) {
+                return crate::export::hdr_encode::encode_hdr_avif(
+                    image,
+                    export_settings.hdr_transfer,
+                    jpeg_quality,
+                );
+            }
             image
                 .write_to(&mut cursor, image::ImageFormat::Avif)
                 .map_err(|e| e.to_string())?;

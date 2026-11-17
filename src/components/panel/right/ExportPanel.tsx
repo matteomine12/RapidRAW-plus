@@ -5,6 +5,8 @@ import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
+import clsx from 'clsx';
+import type { ParseKeys } from 'i18next';
 import Switch from '../../ui/Switch';
 import Button from '../../ui/Button';
 import Dropdown from '../../ui/Dropdown';
@@ -21,6 +23,7 @@ import {
   Status,
   ExportState,
   FileFormats,
+  HdrTransfer,
   MAX_EXPORT_DPI,
   TiffBitDepth,
   WatermarkAnchor,
@@ -247,6 +250,22 @@ export default function ExportPanel({
     [t],
   );
 
+  const hdrFormats: string[] = [
+    FileFormats.Jpeg,
+    FileFormats.Png,
+    FileFormats.Avif,
+    FileFormats.Jxl,
+    FileFormats.Tiff,
+  ];
+
+  const hdrTransferOptions = useMemo(
+    () => [
+      { label: t('export.file.hdrTransferPq'), value: 'pq' },
+      { label: t('export.file.hdrTransferHlg'), value: 'hlg' },
+    ],
+    [t],
+  );
+
   const tiffBitDepthOptions = useMemo(
     () => [
       { label: t('export.file.tiffBitDepth8'), value: '8' },
@@ -262,6 +281,10 @@ export default function ExportPanel({
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    hdrExport,
+    setHdrExport,
+    hdrTransfer,
+    setHdrTransfer,
     dpi,
     setDpi,
     enableResize,
@@ -508,6 +531,8 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      hdrExport,
+      hdrTransfer,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -562,6 +587,8 @@ export default function ExportPanel({
     fileFormat,
     jpegQuality,
     tiffBitDepth,
+    hdrExport,
+    hdrTransfer,
     enableResize,
     resizeMode,
     resizeValue,
@@ -612,6 +639,8 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      hdrExport,
+      hdrTransfer,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -803,6 +832,31 @@ export default function ExportPanel({
                     disabled={isExporting}
                     className="w-full"
                   />
+                </div>
+              )}
+              {hdrFormats.includes(fileFormat) && (
+                <div className={clsx('space-y-2', isExporting && 'opacity-50 pointer-events-none')}>
+                  <Switch
+                    checked={hdrExport}
+                    id="export-hdr-toggle"
+                    label={t('export.file.hdrExport')}
+                    onChange={setHdrExport}
+                  />
+                  <Text variant={TextVariants.small}>{t(`export.file.hdrHint.${fileFormat}` as ParseKeys)}</Text>
+                  {hdrExport && (fileFormat === FileFormats.Png || fileFormat === FileFormats.Avif) && (
+                    <div>
+                      <Text variant={TextVariants.label} className="mb-1">
+                        {t('export.file.hdrTransfer')}
+                      </Text>
+                      <Dropdown
+                        options={hdrTransferOptions}
+                        value={hdrTransfer}
+                        onChange={(value) => setHdrTransfer(value as HdrTransfer)}
+                        disabled={isExporting}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </Section>

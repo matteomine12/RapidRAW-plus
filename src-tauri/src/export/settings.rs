@@ -105,6 +105,16 @@ pub struct ExportSettings {
     pub dpi: Option<u16>,
     #[serde(default)]
     pub export_original: Option<OriginalExportOptions>,
+    /// Keep the highlights of an HDR edit (Ultra HDR JPEG, PNG/AVIF with PQ or HLG, JPEG XL, float TIFF).
+    #[serde(default = "default_true")]
+    pub hdr_export: bool,
+    /// Transfer function of HDR PNG and AVIF files.
+    #[serde(default)]
+    pub hdr_transfer: crate::export::hdr_encode::HdrTransfer,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -147,18 +157,38 @@ pub struct WatermarkSettings {
     pub opacity: f32,
 }
 
-/// An HDR edit exported as JPEG XL or TIFF keeps its highlights above SDR white (linear float, intensity target set).
-/// Border, padding and watermark are composed in 8/16 bit, so those exports use the SDR rendition instead.
+/// Border, padding and watermark are composed in 8/16 bit, so HDR exports skip them (and use the SDR rendition).
+fn hdr_export_possible(adjustments: &serde_json::Value, export_settings: &ExportSettings) -> bool {
+    adjustments["hdrEnabled"].as_bool() == Some(true)
+        && export_settings.hdr_export
+        && export_settings.border.is_none()
+        && export_settings.pad.is_none()
+        && export_settings.watermark.is_none()
+}
+
+/// An HDR edit exported as JPEG XL, TIFF, PNG or AVIF keeps its highlights above SDR white: the render
+/// is linear float and the encoder writes it as float or as a PQ/HLG signal.
 pub fn wants_hdr_export(
     adjustments: &serde_json::Value,
     output_format: &str,
     export_settings: &ExportSettings,
 ) -> bool {
-    adjustments["hdrEnabled"].as_bool() == Some(true)
-        && matches!(output_format.to_lowercase().as_str(), "jxl" | "tif" | "tiff")
-        && export_settings.border.is_none()
-        && export_settings.pad.is_none()
-        && export_settings.watermark.is_none()
+    hdr_export_possible(adjustments, export_settings)
+        && matches!(
+            output_format.to_lowercase().as_str(),
+            "jxl" | "tif" | "tiff" | "png" | "avif"
+        )
+}
+
+/// An HDR edit exported as JPEG becomes an Ultra HDR JPEG: the SDR rendition plus a gain map, so it needs
+/// two renders (SDR and HDR).
+pub fn wants_ultra_hdr(
+    adjustments: &serde_json::Value,
+    output_format: &str,
+    export_settings: &ExportSettings,
+) -> bool {
+    hdr_export_possible(adjustments, export_settings)
+        && matches!(output_format.to_lowercase().as_str(), "jpg" | "jpeg")
 }
 
 pub fn render_output_precision(

@@ -1,10 +1,19 @@
 import { useState, useMemo, useCallback } from 'react';
-import { BorderBasis, DEFAULT_EXPORT_DPI, ExportPreset, TiffBitDepth, WatermarkAnchor } from '../types/export';
+import {
+  BorderBasis,
+  DEFAULT_EXPORT_DPI,
+  ExportPreset,
+  HdrTransfer,
+  TiffBitDepth,
+  WatermarkAnchor,
+} from '../types/export';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
+  const [hdrExport, setHdrExport] = useState(true);
+  const [hdrTransfer, setHdrTransfer] = useState<HdrTransfer>('pq');
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -41,6 +50,8 @@ export function useExportSettings() {
     setFileFormat(preset.fileFormat);
     setJpegQuality(preset.jpegQuality);
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
+    setHdrExport(preset.hdrExport ?? true);
+    setHdrTransfer(preset.hdrTransfer ?? 'pq');
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -79,6 +90,8 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      hdrExport,
+      hdrTransfer,
       dpi,
       enableResize,
       resizeMode,
@@ -115,6 +128,8 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      hdrExport,
+      hdrTransfer,
       dpi,
       enableResize,
       resizeMode,
@@ -156,6 +171,10 @@ export function useExportSettings() {
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    hdrExport,
+    setHdrExport,
+    hdrTransfer,
+    setHdrTransfer,
     dpi,
     setDpi,
     enableResize,

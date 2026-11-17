@@ -1035,7 +1035,18 @@
       "resolution": "Resolution",
       "tiffBitDepth": "TIFF bit depth",
       "tiffBitDepth16": "16-bit",
-      "tiffBitDepth8": "8-bit"
+      "tiffBitDepth8": "8-bit",
+      "hdrExport": "Export HDR when the edit uses HDR",
+      "hdrTransfer": "HDR signal",
+      "hdrTransferPq": "PQ (HDR10)",
+      "hdrTransferHlg": "HLG",
+      "hdrHint": {
+        "jpeg": "Ultra HDR JPEG: the normal JPEG plus a gain map. Shows as HDR on Instagram, Threads, Android and Chrome, and as a regular JPEG everywhere else.",
+        "png": "16-bit PNG with a PQ or HLG signal in BT.2020, marked with a cICP chunk.",
+        "avif": "10-bit AVIF with a PQ or HLG signal in BT.2020.",
+        "jxl": "JPEG XL in linear light with the HDR peak set as its intensity target.",
+        "tiff": "32-bit float TIFF in linear light, SDR white at 1.0."
+      }
     },
     "labels": {
       "image": "Image",

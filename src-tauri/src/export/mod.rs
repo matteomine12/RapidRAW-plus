@@ -1,5 +1,6 @@
 pub mod encode;
 pub mod geometry;
+pub mod hdr_encode;
 pub mod masks;
 pub mod original;
 pub mod settings;
@@ -28,7 +29,7 @@ use crate::app::state::AppState;
 use crate::decode::as_shot::as_shot;
 use crate::decode::formats::is_raw_file;
 use crate::decode::image_loader::prepare_base_image_cow;
-use crate::export::encode::{save_image_with_metadata, set_timestamps_from_exif};
+use crate::export::encode::{save_image_with_metadata, save_ultra_hdr, set_timestamps_from_exif};
 use crate::export::geometry::apply_export_geometry_and_watermark;
 use crate::export::masks::export_masks_for_image;
 use crate::export::original::{
@@ -36,6 +37,7 @@ use crate::export::original::{
 };
 use crate::export::settings::{
     ExportAdjustmentsMode, ExportSettings, render_output_precision, wants_hdr_export,
+    wants_ultra_hdr,
 };
 use crate::export::tasks::{
     ExportTaskGuard, ensure_export_not_cancelled, estimate_export_memory, finish_export_task,
@@ -172,6 +174,42 @@ fn process_image_for_export(
     )?;
 
     apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)
+}
+
+/// The two renders of an Ultra HDR JPEG: the SDR base image and its linear float HDR rendition.
+#[allow(clippy::too_many_arguments)]
+fn process_ultra_hdr_pair(
+    path: &str,
+    base_image: &DynamicImage,
+    base_scale: f32,
+    js_adjustments: &Value,
+    export_settings: &ExportSettings,
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    is_raw: bool,
+    app_handle: &tauri::AppHandle,
+) -> Result<(DynamicImage, DynamicImage), String> {
+    let render = |precision| {
+        process_image_for_export_pipeline(
+            path,
+            base_image,
+            base_scale,
+            js_adjustments,
+            context,
+            state,
+            is_raw,
+            "process_ultra_hdr_export",
+            app_handle,
+            precision,
+        )
+        .and_then(|image| {
+            apply_export_geometry_and_watermark(image, export_settings).map(|(image, _)| image)
+        })
+    };
+    Ok((
+        render(RenderOutputPrecision::EightBit)?,
+        render(RenderOutputPrecision::HdrLinear)?,
+    ))
 }
 
 fn wait_for_ai_bases(
@@ -610,29 +648,58 @@ pub(crate) async fn export_images_impl(
                         .and_then(|extension| extension.to_str())
                         .unwrap_or(output_format.as_str());
 
-                    let final_image = process_image_for_export(
-                        &source_path_str,
-                        base_image.as_deref().unwrap(),
-                        base_scale,
+                    if wants_ultra_hdr(
                         &main_export_adjustments,
-                        &export_settings,
-                        &context_clone,
-                        &state,
-                        is_raw,
-                        &app_handle_clone,
                         actual_output_format,
-                    )?;
-                    if !export_settings.export_masks {
-                        base_image = None;
-                    }
-                    ensure_export_not_cancelled(&cancellation_token_clone)?;
-                    save_image_with_metadata(
-                        &final_image,
-                        &output_path,
-                        &source_path_str,
-                        &export_xmp,
                         &export_settings,
-                    )?;
+                    ) {
+                        let (sdr_image, hdr_image) = process_ultra_hdr_pair(
+                            &source_path_str,
+                            base_image.as_deref().unwrap(),
+                            base_scale,
+                            &main_export_adjustments,
+                            &export_settings,
+                            &context_clone,
+                            &state,
+                            is_raw,
+                            &app_handle_clone,
+                        )?;
+                        if !export_settings.export_masks {
+                            base_image = None;
+                        }
+                        ensure_export_not_cancelled(&cancellation_token_clone)?;
+                        save_ultra_hdr(
+                            &sdr_image,
+                            &hdr_image,
+                            &output_path,
+                            &source_path_str,
+                            &export_settings,
+                        )?;
+                    } else {
+                        let final_image = process_image_for_export(
+                            &source_path_str,
+                            base_image.as_deref().unwrap(),
+                            base_scale,
+                            &main_export_adjustments,
+                            &export_settings,
+                            &context_clone,
+                            &state,
+                            is_raw,
+                            &app_handle_clone,
+                            actual_output_format,
+                        )?;
+                        if !export_settings.export_masks {
+                            base_image = None;
+                        }
+                        ensure_export_not_cancelled(&cancellation_token_clone)?;
+                        save_image_with_metadata(
+                            &final_image,
+                            &output_path,
+                            &source_path_str,
+                            &export_xmp,
+                            &export_settings,
+                        )?;
+                    }
                     ensure_export_not_cancelled(&cancellation_token_clone)?;
 
                     if export_settings.preserve_timestamps {
@@ -907,6 +974,8 @@ pub async fn run_headless_export(
         subfolder: None,
         dpi: None,
         export_original: session.export_original,
+        hdr_export: true,
+        hdr_transfer: Default::default(),
     };
 
     let mut custom_adjustments = None;

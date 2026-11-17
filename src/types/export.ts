@@ -38,6 +38,7 @@ export const isUniqueFilenameTemplate = (template: string): boolean =>
   UNIQUE_FILENAME_VARIABLES.some((variable) => template.includes(variable));
 
 export type TiffBitDepth = 8 | 16;
+export type HdrTransfer = 'pq' | 'hlg';
 
 export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
@@ -46,6 +47,9 @@ export interface ExportSettings {
   filenameTemplate: string | null;
   jpegQuality: number;
   tiffBitDepth: TiffBitDepth;
+  /** Keep the highlights of an HDR edit (Ultra HDR JPEG, PNG/AVIF with PQ or HLG, JPEG XL, float TIFF). */
+  hdrExport?: boolean;
+  hdrTransfer?: HdrTransfer;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   resize: {
@@ -140,6 +144,8 @@ export interface ExportPreset {
   fileFormat: string;
   jpegQuality: number;
   tiffBitDepth?: TiffBitDepth;
+  hdrExport?: boolean;
+  hdrTransfer?: HdrTransfer;
   dpi?: number;
   enableResize: boolean;
   resizeMode: string;

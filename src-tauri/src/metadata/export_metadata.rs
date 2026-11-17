@@ -581,6 +581,7 @@ pub fn collect_metadata_from_source(
     Some(metadata)
 }
 
+#[derive(Default)]
 pub struct ExportXmp {
     keywords: Vec<String>,
     rating: Option<String>,

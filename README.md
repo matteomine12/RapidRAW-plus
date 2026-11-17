@@ -28,6 +28,13 @@ RapidRAW+ is a fork of [RapidRAW](https://github.com/CyberTimon/RapidRAW) by Cyb
   - `linux-x64` from Windows runs a Fedora x86_64 container (Podman or Docker; emulated on ARM64 hosts).
   - `scripts/build.sh` builds natively on Fedora x86_64: it installs the dnf dependencies, Rust and npm packages, then produces rpm/deb/AppImage packages.
 
+- **HDR** on Windows and Linux (the nit handling follows Lightroom and [LightCraft](https://github.com/storytold/lightcraft)):
+  - **HDR display.** When the monitor is in HDR the editor and the viewer render in scRGB (`Rgba16Float`) with SDR white at the system's SDR white level. Peak and SDR white nits are read from the OS (Windows: DXGI and DisplayConfig; KDE Plasma: `kscreen-doctor`; GNOME 48+: Mutter over D-Bus) and can be overridden in *Settings > HDR display*, which also lets you force HDR on where the system does not report it (other Linux compositors need Wayland with colour management and a Vulkan driver that exposes scRGB). The output follows HDR being switched on or off in the OS while the app is open.
+  - **HDR editing.** An *HDR* toggle and a headroom slider (stops above SDR white) in the Basic panel. Shadows and midtones stay identical to the SDR render; highlights that clip in SDR move into the display's headroom along LightCraft's tone curve, and keep their colour. The histogram gets a section above SDR white, and *show clipping* becomes *Visualize HDR* (the range above SDR white coloured by stop).
+  - **HDR export** (on by default when the edit uses HDR, per format in the export panel): Ultra HDR JPEG (SDR base image plus gain map, the format Instagram and Threads accept), 16-bit PNG and 10-bit AVIF with a PQ or HLG signal in BT.2020, JPEG XL in linear light with an intensity target, and 32-bit float TIFF. Border, padding and watermark are not applied to HDR exports. The default *Instagram HDR* preset exports an Ultra HDR JPEG.
+  - Not done yet: separate SDR-rendition offsets for the HDR edit, Display P3 for the Ultra HDR base image, ISO 21496-1 gain map metadata, and HDR display on macOS.
+- **Fixes:** RAW files from 24 MP cameras again develop on GPUs that limit storage buffer bindings to 128 MB (for example Adreno on Windows on ARM), instead of falling back to the embedded JPEG preview.
+
 Upstream changes are tracked through the `upstream` remote (`git fetch upstream`).
 
 # RapidRAW

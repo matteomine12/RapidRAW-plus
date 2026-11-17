@@ -363,6 +363,12 @@ pub struct ExportPreset {
     pub tiff_bit_depth: Option<u8>,
     #[serde(default)]
     pub preserve_timestamps: Option<bool>,
+    /// Keep the highlights of an HDR edit (Ultra HDR JPEG, PQ/HLG PNG and AVIF, JPEG XL, float TIFF).
+    #[serde(default)]
+    pub hdr_export: Option<bool>,
+    /// "pq" or "hlg" for HDR PNG and AVIF.
+    #[serde(default)]
+    pub hdr_transfer: Option<String>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -404,6 +410,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             subfolder: Some("".to_string()),
             tiff_bit_depth: Some(16),
             preserve_timestamps: Some(false),
+            hdr_export: Some(true),
+            hdr_transfer: Some("pq".to_string()),
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -442,6 +450,49 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             subfolder: Some("".to_string()),
             tiff_bit_depth: Some(16),
             preserve_timestamps: Some(false),
+            hdr_export: Some(true),
+            hdr_transfer: Some("pq".to_string()),
+        },
+        // Ultra HDR JPEG (SDR base image + gain map), the HDR format Instagram and Threads accept
+        ExportPreset {
+            id: "default-instagram-hdr".to_string(),
+            name: "Instagram HDR".to_string(),
+            file_format: "jpeg".to_string(),
+            jpeg_quality: 92,
+            enable_resize: true,
+            resize_mode: "longEdge".to_string(),
+            resize_value: 2048,
+            dont_enlarge: true,
+            keep_metadata: false,
+            strip_gps: true,
+            filename_template: "{original_filename}_hdr".to_string(),
+            enable_watermark: false,
+            watermark_path: None,
+            watermark_anchor: Some("bottomRight".to_string()),
+            watermark_scale: 10,
+            watermark_spacing: 5,
+            watermark_opacity: 75,
+            export_masks: Some(false),
+            export_original: Some(false),
+            original_crop: Some(true),
+            original_keep_exposure: Some(false),
+            preserve_folders: Some(false),
+            enable_pad: Some(false),
+            pad_ratio_width: Some(1.0),
+            pad_ratio_height: Some(1.0),
+            pad_color: Some("#ffffff".to_string()),
+            enable_border: Some(false),
+            border_basis: Some("longEdge".to_string()),
+            border_horizontal_percent: Some(2.0),
+            border_vertical_percent: Some(2.0),
+            border_color: Some("#ffffff".to_string()),
+            last_export_path: None,
+            destination_type: Some("customFolder".to_string()),
+            subfolder: Some("".to_string()),
+            tiff_bit_depth: Some(16),
+            preserve_timestamps: Some(false),
+            hdr_export: Some(true),
+            hdr_transfer: Some("pq".to_string()),
         },
     ]
 }
