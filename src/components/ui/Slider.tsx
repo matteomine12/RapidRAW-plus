@@ -729,7 +729,7 @@ const Slider = ({
             key={index}
             style={{
               backgroundColor: color,
-              left: `calc(8px + (100% - 16px) * ${Math.max(0, Math.min(1, getPositionFraction(markerValue)))})`,
+              left: `calc(3px + (100% - 6px) * ${Math.max(0, Math.min(1, getPositionFraction(markerValue)))})`,
             }}
           />
         ))}
