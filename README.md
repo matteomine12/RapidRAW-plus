@@ -24,7 +24,7 @@ RapidRAW+ is a fork of [RapidRAW](https://github.com/CyberTimon/RapidRAW) by Cyb
 ### What's different in RapidRAW+
 
 - **Multi-target build scripts** in [`scripts/`](scripts/):
-  - `scripts/build.ps1` builds from Windows for `win-arm64`, `win-x64` or `linux-x64` (`.scriptsbuild.ps1 -Target win-arm64`; run without `-Target` for an interactive menu). `-InstallDeps` installs Rust via winget, `-Debug` makes a debug build, `-Features tethering` enables camera tethering.
+  - `scripts/build.ps1` builds from Windows for `win-arm64`, `win-x64` or `linux-x64` (`./scripts/build.ps1 -Target win-arm64`; run without `-Target` for an interactive menu). `-InstallDeps` installs Rust via winget, `-Debug` makes a debug build, `-Features tethering` enables camera tethering.
   - `linux-x64` from Windows runs a Fedora x86_64 container (Podman or Docker; emulated on ARM64 hosts).
   - `scripts/build.sh` builds natively on Fedora x86_64: it installs the dnf dependencies, Rust and npm packages, then produces rpm/deb/AppImage packages.
 
