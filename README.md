@@ -32,6 +32,11 @@ RapidRAW+ is a fork of [RapidRAW](https://github.com/CyberTimon/RapidRAW) by Cyb
   - **HDR display:** the editor and viewer render in HDR when the monitor is in HDR. Peak and SDR white nits are read from the system and can be changed in *Settings > HDR display*.
   - **HDR editing:** an *HDR* toggle and a headroom slider (stops and nits) in the Basic panel, an HDR half in the histogram, and *Visualize HDR* on the clipping overlay.
   - **HDR export:** Ultra HDR JPEG (also as the *Instagram HDR* format), PNG and AVIF with PQ or HLG, JPEG XL and float TIFF. Wide gamut for HDR files: Display P3 for JPEG, Rec.2020 or Display P3 for PNG and AVIF.
+- **Redesign (Material 3 Expressive):**
+  - **Photo-coloured interface:** the whole app is painted with a heavily blurred, static gradient taken from the current photo. It follows your edits (white balance, saturation) live, uses a neutral wash before a photo is picked, and its lightness is solved per theme so text always keeps its contrast. The desktop never shows through the window.
+  - **No glow:** titles and buttons no longer have glow or shiny shadows.
+  - **Expressive components:** pill buttons and segmented controls, larger corner radii, frosted dialogs, menus, tooltips and toasts, a Material 3 switch, a pill slider handle that narrows while dragged, a thick progress bar with a stop indicator, state layers on hover and press, and visible keyboard focus rings.
+  - **Motion:** shared spring presets (`src/utils/motion.ts`) for everything that moves, plain eases for colour changes, and reduced-motion support.
 - **RAW fix:** 24 MP RAW files develop on GPUs with a 128 MB storage buffer limit (for example Adreno on Windows on ARM).
 
 Upstream changes are tracked through the `upstream` remote (`git fetch upstream`).
