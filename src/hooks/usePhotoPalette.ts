@@ -79,8 +79,8 @@ function extractPalette(img: HTMLImageElement): Palette | null {
   }
 
   // Near-monochrome photos keep a quiet, desaturated wash instead of inventing colour.
-  const cap = meanSat < 0.08 ? 0.12 : 0.7;
-  const sat = (s: number) => Math.min(cap, Math.max(cap === 0.12 ? 0.04 : 0.35, s));
+  const cap = meanSat < 0.08 ? 0.12 : 0.85;
+  const sat = (s: number) => Math.min(cap, Math.max(cap === 0.12 ? 0.04 : 0.55, s));
   return {
     hues: [picks[0].hue, picks[1].hue, picks[2].hue],
     sats: [sat(picks[0].sat), sat(picks[1].sat), sat(picks[2].sat)],

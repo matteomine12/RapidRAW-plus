@@ -5,17 +5,17 @@
 @property --photo-c1 {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgb(60, 70, 110);
+  initial-value: rgb(70, 80, 200);
 }
 @property --photo-c2 {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgb(100, 60, 100);
+  initial-value: rgb(190, 70, 160);
 }
 @property --photo-c3 {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgb(50, 90, 100);
+  initial-value: rgb(40, 150, 170);
 }
 
 :root {
@@ -24,15 +24,10 @@
     --photo-c2 1s ease,
     --photo-c3 1s ease;
   --photo-gradient:
-    radial-gradient(90vmax 70vmax at 30% 30%, var(--photo-c1) 0%, transparent 100%),
-    radial-gradient(85vmax 65vmax at 70% 35%, var(--photo-c2) 0%, transparent 100%),
-    radial-gradient(95vmax 70vmax at 50% 75%, var(--photo-c3) 0%, transparent 100%),
-    radial-gradient(
-      70vmax 60vmax at 50% 50%,
-      color-mix(in oklab, var(--photo-c1), var(--photo-c3)) 0%,
-      transparent 100%
-    ),
-    color-mix(in oklab, var(--photo-c2) 40%, rgb(10 10 14));
+    radial-gradient(110vmax 80vmax at 20% 25%, var(--photo-c1) 0%, transparent 100%),
+    radial-gradient(100vmax 75vmax at 80% 30%, var(--photo-c2) 0%, transparent 100%),
+    radial-gradient(110vmax 80vmax at 50% 85%, var(--photo-c3) 0%, transparent 100%),
+    color-mix(in oklab, var(--photo-c2) 55%, rgb(10 10 14));
 }
 
 /* Every former flat-grey panel now shows the viewport-fixed photo gradient under a contrast scrim. */

@@ -14,7 +14,7 @@ export const THEMES: Array<ThemeProps> = [
     splashImage: '/splash-dark.jpg',
     cssVariables: {
       '--app-bg-primary': 'rgba(10, 10, 14, 0.58)',
-      '--app-bg-secondary': 'rgba(10, 10, 14, 0.48)',
+      '--app-bg-secondary': 'rgba(10, 10, 14, 0.14)',
       '--app-surface': 'rgba(255, 255, 255, 0.07)',
       '--app-card-active': 'rgba(255, 255, 255, 0.14)',
       '--app-button-text': 'rgb(10, 10, 14)',
@@ -24,8 +24,8 @@ export const THEMES: Array<ThemeProps> = [
       '--app-border-color': 'rgba(255, 255, 255, 0.12)',
       '--app-hover-color': 'rgb(255, 255, 255)',
       '--app-canvas-bg': 'rgb(14, 14, 17)',
-      '--app-scrim': 'rgba(8, 8, 12, 0.5)',
-      '--app-photo-lightness': '0.30',
+      '--app-scrim': 'rgba(8, 8, 12, 0.18)',
+      '--app-photo-lightness': '0.46',
     },
   },
   {
@@ -34,7 +34,7 @@ export const THEMES: Array<ThemeProps> = [
     splashImage: '/splash-light.jpg',
     cssVariables: {
       '--app-bg-primary': 'rgba(255, 255, 255, 0.62)',
-      '--app-bg-secondary': 'rgba(255, 255, 255, 0.5)',
+      '--app-bg-secondary': 'rgba(255, 255, 255, 0.12)',
       '--app-surface': 'rgba(255, 255, 255, 0.55)',
       '--app-card-active': 'rgba(255, 255, 255, 0.85)',
       '--app-button-text': 'rgb(255, 255, 255)',
@@ -44,8 +44,8 @@ export const THEMES: Array<ThemeProps> = [
       '--app-border-color': 'rgba(20, 20, 24, 0.12)',
       '--app-hover-color': 'rgb(20, 20, 24)',
       '--app-canvas-bg': 'rgb(232, 232, 236)',
-      '--app-scrim': 'rgba(255, 255, 255, 0.5)',
-      '--app-photo-lightness': '0.84',
+      '--app-scrim': 'rgba(255, 255, 255, 0.18)',
+      '--app-photo-lightness': '0.80',
     },
   },
   {
@@ -64,7 +64,7 @@ export const THEMES: Array<ThemeProps> = [
       '--app-border-color': 'rgba(255, 255, 255, 0.18)',
       '--app-hover-color': 'rgb(248, 248, 250)',
       '--app-canvas-bg': 'rgb(70, 70, 78)',
-      '--app-scrim': 'rgba(30, 30, 38, 0.38)',
+      '--app-scrim': 'rgba(30, 30, 38, 0.2)',
       '--app-photo-lightness': '0.44',
     },
   },
