@@ -14,7 +14,7 @@ param(
     [ValidateSet('win-arm64', 'win-x64', 'linux-x64')]
     [string]$Target,
     [switch]$InstallDeps,
-    [switch]$Debug,
+    [switch]$DebugBuild,
     [string]$Features = ''
 )
 
@@ -77,12 +77,12 @@ function Build-Windows([string]$RustTarget) {
     }
 
     $tauriArgs = @('tauri', 'build', '--target', $RustTarget, '--bundles', 'nsis')
-    if ($Debug) { $tauriArgs += '--debug' }
+    if ($DebugBuild) { $tauriArgs += '--debug' }
     if ($Features) { $tauriArgs += @('--features', $Features) }
     Write-Host ">> npx $($tauriArgs -join ' ')"
     Invoke-Checked npx $tauriArgs
 
-    $profileDir = if ($Debug) { 'debug' } else { 'release' }
+    $profileDir = if ($DebugBuild) { 'debug' } else { 'release' }
     Write-Host "`nFatto. Installer in: src-tauri\target\$RustTarget\$profileDir\bundle\nsis" -ForegroundColor Green
 }
 
@@ -100,7 +100,7 @@ Installa con:  winget install RedHat.Podman   oppure   winget install Docker.Doc
     }
     $tauriArgs = @('run', '--rm', '--platform', 'linux/amd64',
         '-v', "${Root}:/src", '-w', '/src',
-        '-e', "RR_FEATURES=$Features", '-e', "RR_DEBUG=$([int]$Debug.IsPresent)",
+        '-e', "RR_FEATURES=$Features", '-e', "RR_DEBUG=$([int]$DebugBuild.IsPresent)",
         'registry.fedoraproject.org/fedora:latest',
         'bash', 'scripts/build.sh')
     Write-Host ">> $engine $($tauriArgs -join ' ')"
