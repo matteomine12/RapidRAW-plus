@@ -918,7 +918,7 @@ function AiJobRow({ path, active, children }: { path: string; active?: boolean; 
     <motion.div className="overflow-hidden shrink-0" {...AI_JOB_COLLAPSE_ANIMATION}>
       <div className="px-1 py-0.5">
         <div
-          className={clsx('px-3 py-2 rounded-md flex items-center gap-3 transition-colors', active && 'bg-bg-primary')}
+          className={clsx('px-3 py-2 rounded-xl flex items-center gap-3 transition-colors', active && 'bg-bg-primary')}
           data-tooltip={path}
         >
           <Text
@@ -1109,7 +1109,7 @@ function JobRow({ job, onNavigateToFolder }: { job: Job; onNavigateToFolder(path
       <div className="px-1 py-0.5">
         <RowElement
           className={clsx(
-            'w-full px-3 py-2 rounded-md flex items-center gap-3 text-left',
+            'w-full px-3 py-2 rounded-xl flex items-center gap-3 text-left',
             action && 'cursor-pointer hover:bg-bg-primary transition-colors',
           )}
           onClick={action?.run}

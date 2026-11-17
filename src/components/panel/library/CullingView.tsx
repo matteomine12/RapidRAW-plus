@@ -459,7 +459,7 @@ function CullingPreview({
   const ringClass = isActive
     ? 'ring-2 ring-inset ring-accent'
     : isSelected
-      ? 'ring-2 ring-inset ring-gray-400'
+      ? 'ring-2 ring-inset ring-text-secondary'
       : 'group-hover:ring-2 group-hover:ring-inset group-hover:ring-hover-color';
 
   const effectiveDragging = isDragging || (syncViewport.isActive && syncViewport.isDragging);

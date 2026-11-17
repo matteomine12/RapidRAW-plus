@@ -261,7 +261,7 @@ function FolderOptionsMenu({
                 return (
                   <button
                     key={opt.key}
-                    className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
+                    className="w-full text-left px-3 py-2 text-sm rounded-xl flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
                     onClick={() => {
                       if (sort.key !== opt.key) {
                         onChange({ key: opt.key as any, order: sort.order });
@@ -279,7 +279,7 @@ function FolderOptionsMenu({
               })}
               <div className="h-px bg-text-secondary/20 my-1 mx-2" />
               <button
-                className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
+                className="w-full text-left px-3 py-2 text-sm rounded-xl flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
                 onClick={() => {
                   onAddFolder();
                   setIsOpen(false);
@@ -293,7 +293,7 @@ function FolderOptionsMenu({
               </button>
 
               <button
-                className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
+                className="w-full text-left px-3 py-2 text-sm rounded-xl flex items-center gap-3 justify-between transition-colors duration-150 text-text-primary hover:bg-bg-primary"
                 onClick={() => {
                   onRefresh();
                   setIsOpen(false);
@@ -316,7 +316,7 @@ function FolderOptionsMenu({
 function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boolean; onToggle: () => void }) {
   return (
     <div
-      className="flex items-center justify-between w-full px-1 py-1.5 cursor-pointer group rounded-md hover:bg-surface/30 transition-colors"
+      className="flex items-center justify-between w-full px-1 py-1.5 cursor-pointer group rounded-xl hover:bg-surface/30 transition-colors"
       onClick={onToggle}
     >
       <Text as="div" variant={TextVariants.small} weight={TextWeights.bold} className="flex items-center min-w-0">
@@ -1132,7 +1132,7 @@ export default function FolderTree({
                               <Text
                                 as="div"
                                 weight={TextWeights.medium}
-                                className="flex items-center gap-2 p-2 mt-1 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                                className="flex items-center gap-2 p-2 mt-1 rounded-xl transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
                                 onClick={(e: React.MouseEvent) => {
                                   e.stopPropagation();
                                   onOpenFolder();

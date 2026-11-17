@@ -289,7 +289,7 @@ function AdjustmentSectionsSubMenu() {
       </Reorder.Group>
       <div className="h-px bg-text-secondary/20 my-1 mx-2" />
       <button
-        className="w-full text-left px-3 py-2 text-sm rounded-md flex items-center gap-3 transition-colors duration-150 text-text-primary hover:bg-bg-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        className="w-full text-left px-3 py-2 text-sm rounded-xl flex items-center gap-3 transition-colors duration-150 text-text-primary hover:bg-bg-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         disabled={isDefaultLayout}
         onClick={handleReset}
         role="menuitem"

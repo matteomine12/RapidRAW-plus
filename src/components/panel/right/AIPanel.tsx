@@ -164,7 +164,7 @@ const BrushTools = ({
       {showToolSwitch && (
         <div className="grid grid-cols-2 gap-2 pt-2">
           <button
-            className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
               settings.tool === ToolType.Brush
                 ? 'text-primary bg-surface'
                 : 'bg-surface text-text-secondary hover:bg-card-active'
@@ -174,7 +174,7 @@ const BrushTools = ({
             {t('editor.ai.brush.add')}
           </button>
           <button
-            className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
               settings.tool === ToolType.Eraser
                 ? 'text-primary bg-surface'
                 : 'bg-surface text-text-secondary hover:bg-card-active'
@@ -279,7 +279,7 @@ const CloneHealControls = ({
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-text-secondary select-none">{t('editor.ai.cloneHeal.mode')}</span>
         </div>
-        <div className="w-full p-2 bg-card-active rounded-md">
+        <div className="w-full p-2 bg-card-active rounded-xl">
           <div className="relative flex w-full">
             <motion.div
               className="absolute top-0 bottom-0 z-0 bg-accent"
@@ -1376,7 +1376,7 @@ export default function AIPanel() {
                     <Text
                       as="div"
                       weight={TextWeights.medium}
-                      className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                      className="flex items-center gap-2 p-2 rounded-xl transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
                       onClick={(e) => handleAddAiContextMenu(e, null)}
                     >
                       <div className="p-0.5">
@@ -1435,7 +1435,7 @@ export default function AIPanel() {
                 as="div"
                 color={TextColors.primary}
                 weight={TextWeights.medium}
-                className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10"
+                className="flex items-center gap-2 p-2 rounded-xl bg-surface shadow-2xl opacity-90 ring-1 ring-black/10"
               >
                 {(() => {
                   const item = activeDragItem.item as AiPatch;
@@ -1451,7 +1451,7 @@ export default function AIPanel() {
                 as="div"
                 color={TextColors.primary}
                 weight={TextWeights.medium}
-                className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75"
+                className="flex items-center gap-2 p-2 rounded-xl bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75"
               >
                 {(() => {
                   const sm = activeDragItem.item as SubMask;
@@ -1669,7 +1669,7 @@ function ContainerRow({
       <div
         {...listeners}
         {...attributes}
-        className={`flex items-center gap-2 p-2 rounded-md transition-colors group
+        className={`flex items-center gap-2 p-2 rounded-xl transition-colors group
                 ${isRowSelected ? 'bg-surface' : 'hover:bg-card-active'}
                 ${borderClass}`}
         onClick={(e) => {
@@ -1835,7 +1835,7 @@ function ContainerRow({
                   <Text
                     as="div"
                     weight={TextWeights.medium}
-                    className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                    className="flex items-center gap-2 p-2 rounded-xl transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddComponent(e);
@@ -1963,7 +1963,7 @@ function SubMaskRow({
       {...listeners}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`flex items-center gap-2 p-2 rounded-md transition-colors group cursor-pointer
+      className={`flex items-center gap-2 p-2 rounded-xl transition-colors group cursor-pointer
             ${isActive ? 'bg-surface' : 'hover:bg-card-active'}
             ${isOver && !isDraggingContainer ? 'border-t-2 border-accent' : ''}
             ${isDragging ? 'opacity-40 z-50' : ''}
@@ -2167,7 +2167,7 @@ function SettingsPanel({
                 variant={TextVariants.small}
                 color={TextColors.accent}
                 weight={TextWeights.medium}
-                className="p-3 bg-card-active rounded-md border border-surface flex items-center gap-3"
+                className="p-3 bg-card-active rounded-xl border border-surface flex items-center gap-3"
               >
                 <Loader2 size={16} className="animate-spin shrink-0" />
                 <div className="leading-relaxed">
@@ -2296,7 +2296,7 @@ function SettingsPanel({
                   variant={TextVariants.small}
                   color={TextColors.accent}
                   weight={TextWeights.medium}
-                  className="p-3 bg-card-active rounded-md border border-surface flex items-center gap-3"
+                  className="p-3 bg-card-active rounded-xl border border-surface flex items-center gap-3"
                 >
                   <Loader2 size={16} className="animate-spin shrink-0" />
                   <div className="leading-relaxed">

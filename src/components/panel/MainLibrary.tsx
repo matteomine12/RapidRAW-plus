@@ -390,7 +390,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                     <div className="flex flex-col w-full max-w-xs gap-4 relative z-10">
                       {hasLastPath && (
                         <Button
-                          className="rounded-md h-11 w-full flex justify-center items-center shadow-md transition-transform duration-200 hover:scale-[1.01] active:scale-[.98]"
+                          className="rounded-full h-11 w-full flex justify-center items-center shadow-md transition-transform duration-200 hover:scale-[1.01] active:scale-[.98]"
                           onClick={props.onContinueSession}
                           size="lg"
                         >
@@ -399,7 +399,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                       )}
                       <div className="flex items-center gap-2">
                         <Button
-                          className={`rounded-md grow flex justify-center items-center shadow-md h-11 transition-transform duration-200 hover:scale-[1.01] active:scale-[.98] ${
+                          className={`rounded-full grow flex justify-center items-center shadow-md h-11 transition-transform duration-200 hover:scale-[1.01] active:scale-[.98] ${
                             hasLastPath ? 'bg-surface text-text-primary' : ''
                           }`}
                           onClick={props.onOpenFolder}

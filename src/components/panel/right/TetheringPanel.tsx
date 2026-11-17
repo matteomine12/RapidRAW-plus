@@ -147,7 +147,7 @@ function SettingInput({
         }
       }}
       placeholder={placeholder}
-      className="w-full bg-bg-primary border border-surface rounded-md px-2 py-1.5 text-xs text-text-primary focus:outline-hidden focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
+      className="w-full bg-bg-primary border border-surface rounded-xl px-2 py-1.5 text-xs text-text-primary focus:outline-hidden focus:border-accent focus:ring-1 focus:ring-accent transition-colors"
     />
   );
 }
@@ -862,7 +862,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
                 </div>
 
                 {autoApplyPreset && (
-                  <div className="flex items-center justify-between bg-bg-primary px-2.5 py-1.5 rounded-md border border-surface mt-1">
+                  <div className="flex items-center justify-between bg-bg-primary px-2.5 py-1.5 rounded-xl border border-surface mt-1">
                     <Text variant={TextVariants.small} color={TextColors.primary} className="truncate font-medium">
                       {autoApplyPreset.name}
                     </Text>
@@ -894,7 +894,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
       <div className="p-3 border-t border-surface shrink-0 flex items-center gap-2 w-full">
         <Button
           variant="secondary"
-          className="h-11 px-3.5 flex items-center justify-center shrink-0 rounded-md"
+          className="h-11 px-3.5 flex items-center justify-center shrink-0 rounded-full"
           disabled={!isConnected || isFocusing || isCapturing}
           onClick={triggerAutoFocus}
           data-tooltip={t('tethering.triggerAutofocus')}
@@ -903,7 +903,7 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
         </Button>
 
         <Button
-          className="group rounded-md h-11 grow flex items-center text-md font-bold! justify-center"
+          className="group rounded-full h-11 grow flex items-center text-md font-bold! justify-center"
           disabled={isCapturing || !isConnected}
           onClick={captureImage}
           size="lg"

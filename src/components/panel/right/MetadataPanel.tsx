@@ -93,7 +93,7 @@ function MetadataItem({ label, value }: MetaDataItemProps) {
   };
 
   return (
-    <div className="flex justify-between items-start gap-4 py-1.5 px-2 rounded-md hover:bg-card-active transition-colors cursor-default">
+    <div className="flex justify-between items-start gap-4 py-1.5 px-2 rounded-xl hover:bg-card-active transition-colors cursor-default">
       <Text
         variant={TextVariants.small}
         color={TextColors.secondary}
@@ -763,7 +763,7 @@ export default function MetadataPanel() {
 
                           <div
                             className={clsx(
-                              'flex items-center bg-bg-primary border rounded-md px-2 py-1.5 transition-colors',
+                              'flex items-center bg-bg-primary border rounded-xl px-2 py-1.5 transition-colors',
                               isTagInputFocused ? 'border-accent' : 'border-surface',
                             )}
                           >

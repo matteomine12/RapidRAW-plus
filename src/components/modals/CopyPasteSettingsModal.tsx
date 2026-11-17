@@ -233,14 +233,14 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
               <Text variant={TextVariants.heading}>{t('modals.copyPaste.includedAdjustments')}</Text>
               <div className="flex gap-2">
                 <Button
-                  className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
+                  className="px-4 py-2 rounded-full text-text-secondary hover:bg-surface transition-colors"
                   size="sm"
                   onClick={handleSelectAll}
                 >
                   {t('modals.copyPaste.selectAll')}
                 </Button>
                 <Button
-                  className="px-4 py-2 rounded-md text-text-secondary hover:bg-surface transition-colors"
+                  className="px-4 py-2 rounded-full text-text-secondary hover:bg-surface transition-colors"
                   size="sm"
                   onClick={handleSelectNone}
                 >
@@ -277,7 +277,7 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-surface">
           <Button
-            className="px-4 py-2 rounded-md text-text-secondary bg-surface hover:bg-surface transition-colors"
+            className="px-4 py-2 rounded-full text-text-secondary bg-surface hover:bg-surface transition-colors"
             onClick={onClose}
           >
             {t('modals.copyPaste.cancel')}

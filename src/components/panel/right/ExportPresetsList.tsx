@@ -114,7 +114,7 @@ export default function ExportPresetsList({
 
           <button
             onClick={() => setIsCreating(true)}
-            className="p-2 bg-surface hover:bg-card-active rounded-md text-text-primary transition-colors"
+            className="p-2 bg-surface hover:bg-card-active rounded-xl text-text-primary transition-colors"
             data-tooltip={t('ui.exportPresets.saveAsNewTooltip')}
           >
             <Plus size={18} />
@@ -125,7 +125,7 @@ export default function ExportPresetsList({
               <button
                 onClick={handleOverwritePreset}
                 disabled={isSaved}
-                className={`p-2 bg-surface hover:bg-card-active rounded-md transition-colors ${
+                className={`p-2 bg-surface hover:bg-card-active rounded-xl transition-colors ${
                   isSaved ? 'text-green-500' : 'text-text-secondary'
                 }`}
                 data-tooltip={isSaved ? t('ui.exportPresets.savedTooltip') : t('ui.exportPresets.overwriteTooltip')}
@@ -134,7 +134,7 @@ export default function ExportPresetsList({
               </button>
               <button
                 onClick={handleDeletePreset}
-                className="p-2 bg-surface hover:bg-red-500/20 hover:text-red-500 rounded-md text-text-secondary transition-colors"
+                className="p-2 bg-surface hover:bg-red-500/20 hover:text-red-500 rounded-xl text-text-secondary transition-colors"
                 data-tooltip={t('ui.exportPresets.deleteTooltip')}
               >
                 <Trash2 size={18} />
@@ -150,7 +150,7 @@ export default function ExportPresetsList({
             placeholder={t('ui.exportPresets.presetNamePlaceholder')}
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
-            className="grow bg-bg-primary border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+            className="grow bg-bg-primary border border-surface rounded-xl p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
             onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
           />
           <button
@@ -162,7 +162,7 @@ export default function ExportPresetsList({
           </button>
           <button
             onClick={() => setIsCreating(false)}
-            className="p-2 bg-surface text-text-secondary rounded-md hover:bg-card-active"
+            className="p-2 bg-surface text-text-secondary rounded-xl hover:bg-card-active"
           >
             <X size={18} />
           </button>

@@ -800,7 +800,7 @@ export default function CropPanel() {
                   return (
                     <motion.div
                       className={clsx(
-                        'relative group px-2 py-1.5 rounded-md transition-colors text-center cursor-pointer',
+                        'relative group px-2 py-1.5 rounded-full transition-colors text-center cursor-pointer',
                         isPresetActive(preset) ? 'bg-accent' : 'bg-surface hover:bg-card-active',
                       )}
                       key={savedIndex < 0 ? preset.name : `saved-${savedIndex}`}
@@ -835,7 +835,7 @@ export default function CropPanel() {
               <div>
                 <motion.div
                   className={clsx(
-                    'w-full px-2 py-1.5 rounded-md transition-colors cursor-pointer text-center',
+                    'w-full px-2 py-1.5 rounded-full transition-colors cursor-pointer text-center',
                     isCustomActive ? 'bg-accent' : 'bg-surface hover:bg-card-active',
                   )}
                   onClick={() => {
@@ -856,7 +856,7 @@ export default function CropPanel() {
                 </motion.div>
                 <div
                   className={clsx(
-                    'mt-2 bg-surface p-2 rounded-md transition-opacity',
+                    'mt-2 bg-surface p-2 rounded-xl transition-opacity',
                     isCustomActive ? 'opacity-100' : 'opacity-50 pointer-events-none',
                   )}
                 >
@@ -1086,7 +1086,7 @@ export default function CropPanel() {
                             </motion.button>
 
                             {adjustments.guidedPerspective?.lines && adjustments.guidedPerspective.lines.length > 0 && (
-                              <div className="p-3 bg-bg-primary rounded-md border border-surface flex flex-col gap-2">
+                              <div className="p-3 bg-bg-primary rounded-xl border border-surface flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-xs font-medium">
                                   <span>{t('editor.guided.linesStatus')}</span>
                                   <span
@@ -1103,7 +1103,7 @@ export default function CropPanel() {
                                   {adjustments.guidedPerspective.lines.map((line: any, idx: number) => (
                                     <div
                                       key={line.id}
-                                      className="flex items-center gap-2 p-2 rounded-md bg-surface transition-colors group"
+                                      className="flex items-center gap-2 p-2 rounded-xl bg-surface transition-colors group"
                                     >
                                       <Text
                                         as="div"
@@ -1346,7 +1346,7 @@ export default function CropPanel() {
                             <button
                               onClick={() => handleModeChange('auto')}
                               className={clsx(
-                                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
+                                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-xl transition-colors',
                                 lensMode === 'auto' ? 'text-button-text' : 'text-text-primary hover:bg-surface/50',
                               )}
                               style={{ WebkitTapHighlightColor: 'transparent' }}
@@ -1358,7 +1358,7 @@ export default function CropPanel() {
                             <button
                               onClick={() => handleModeChange('manual')}
                               className={clsx(
-                                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
+                                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-xl transition-colors',
                                 lensMode === 'manual' ? 'text-button-text' : 'text-text-primary hover:bg-surface/50',
                               )}
                               style={{ WebkitTapHighlightColor: 'transparent' }}
@@ -1373,7 +1373,7 @@ export default function CropPanel() {
                         {lensMode === 'auto' ? (
                           <div
                             className={clsx(
-                              'w-full flex items-center justify-center gap-2 p-3 text-sm rounded-md border transition-colors',
+                              'w-full flex items-center justify-center gap-2 p-3 text-sm rounded-xl border transition-colors',
                               lensInfo === null
                                 ? 'bg-red-500/10 text-red-400 border-red-500/20'
                                 : lensInfo
@@ -1421,7 +1421,7 @@ export default function CropPanel() {
                         <div className="flex flex-col gap-3 mt-2">
                           <div
                             className={clsx(
-                              'bg-bg-primary p-3 rounded-md border border-surface transition-colors',
+                              'bg-bg-primary p-3 rounded-xl border border-surface transition-colors',
                               hasDistortion ? '' : 'opacity-50 grayscale',
                             )}
                           >
@@ -1465,7 +1465,7 @@ export default function CropPanel() {
 
                           <div
                             className={clsx(
-                              'bg-bg-primary p-3 rounded-md border border-surface transition-colors',
+                              'bg-bg-primary p-3 rounded-xl border border-surface transition-colors',
                               hasTca ? '' : 'opacity-50 grayscale',
                             )}
                           >
@@ -1509,7 +1509,7 @@ export default function CropPanel() {
 
                           <div
                             className={clsx(
-                              'bg-bg-primary p-3 rounded-md border border-surface transition-colors',
+                              'bg-bg-primary p-3 rounded-xl border border-surface transition-colors',
                               hasVignetting ? '' : 'opacity-50 grayscale',
                             )}
                           >
@@ -1555,7 +1555,7 @@ export default function CropPanel() {
                         <Text
                           as="div"
                           variant={TextVariants.small}
-                          className="p-3 mt-2 bg-bg-primary rounded-md border border-surface flex items-start gap-3"
+                          className="p-3 mt-2 bg-bg-primary rounded-xl border border-surface flex items-start gap-3"
                         >
                           <Info size={16} className="shrink-0 mt-0.5" />
                           <div className="leading-tight space-y-1">

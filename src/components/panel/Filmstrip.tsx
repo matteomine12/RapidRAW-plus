@@ -173,7 +173,7 @@ const FilmstripThumbnail = memo(
     const ringClass = isActive
       ? 'ring-2 ring-accent shadow-md'
       : isSelected
-        ? 'ring-2 ring-gray-400'
+        ? 'ring-2 ring-text-secondary'
         : 'hover:ring-2 hover:ring-hover-color';
 
     const imageClasses = `w-full h-full group-hover:scale-[1.02] transition-transform duration-300`;

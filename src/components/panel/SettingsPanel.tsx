@@ -461,7 +461,7 @@ const CloudDashboard = () => {
       </div>
 
       {isPro ? (
-        <div className="bg-surface p-4 rounded-md">
+        <div className="bg-surface p-4 rounded-xl">
           <div className="flex justify-between items-center mb-2">
             <Text variant={TextVariants.label}>{t('settings.processing.ai.cloud.signedIn.usage')}</Text>
             <Text variant={TextVariants.small}>
@@ -1043,7 +1043,7 @@ export default function SettingsPanel({
               </Text>
             </div>
 
-            <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-md">
+            <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-xl">
               {settingCategories.map((category) => (
                 <button
                   key={category.id}
@@ -1544,7 +1544,7 @@ export default function SettingsPanel({
                               className="flex justify-between items-center py-3 first:pt-0 last:pb-0"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="p-2 bg-surface rounded-md text-accent">
+                                <div className="p-2 bg-surface rounded-xl text-accent">
                                   <Bookmark size={16} />
                                 </div>
                                 <div>
@@ -1556,7 +1556,7 @@ export default function SettingsPanel({
                               </div>
                               <button
                                 onClick={() => handleRemoveLens(index)}
-                                className="p-2 text-text-secondary hover:text-red-400 hover:bg-bg-primary rounded-md transition-colors"
+                                className="p-2 text-text-secondary hover:text-red-400 hover:bg-bg-primary rounded-xl transition-colors"
                                 data-tooltip={t('settings.lenses.removeTooltip')}
                               >
                                 <Trash2 size={16} />
@@ -1620,7 +1620,7 @@ export default function SettingsPanel({
                                   description={t('settings.tagging.customListDesc')}
                                 >
                                   <div>
-                                    <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
+                                    <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-xl min-h-10 border border-border-color mb-2 items-center">
                                       <AnimatePresence>
                                         {customAiTags.length > 0 ? (
                                           customAiTags.map((tag: string) => (
@@ -1680,7 +1680,7 @@ export default function SettingsPanel({
                                       <button
                                         onClick={() => onSettingsChange({ ...appSettings, customAiTags: [] })}
                                         disabled={customAiTags.length === 0}
-                                        className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
+                                        className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
                                         data-tooltip={t('settings.tagging.clearCustomTooltip')}
                                       >
                                         <Trash2 size={18} />
@@ -1699,7 +1699,7 @@ export default function SettingsPanel({
                         description={t('settings.tagging.shortcutsDesc')}
                       >
                         <div>
-                          <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
+                          <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-xl min-h-10 border border-border-color mb-2 items-center">
                             <AnimatePresence>
                               {taggingShortcuts.length > 0 ? (
                                 taggingShortcuts.map((shortcut: string) => (
@@ -1758,7 +1758,7 @@ export default function SettingsPanel({
                             <button
                               onClick={() => onSettingsChange({ ...appSettings, taggingShortcuts: [] })}
                               disabled={taggingShortcuts.length === 0}
-                              className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
+                              className="p-2 text-text-secondary hover:text-red-400 hover:bg-surface rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-secondary disabled:hover:bg-transparent"
                               data-tooltip={t('settings.tagging.clearShortcutsTooltip')}
                             >
                               <Trash2 size={18} />

@@ -204,13 +204,13 @@ const BrushTools = ({
       />
       <div className="grid grid-cols-2 gap-2 pt-2">
         <button
-          className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${settings.tool === ToolType.Brush ? 'text-primary bg-surface' : 'bg-surface text-text-secondary hover:bg-card-active'}`}
+          className={`p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${settings.tool === ToolType.Brush ? 'text-primary bg-surface' : 'bg-surface text-text-secondary hover:bg-card-active'}`}
           onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Brush }))}
         >
           {t('editor.masks.brush.brush')}
         </button>
         <button
-          className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${settings.tool === ToolType.Eraser ? 'text-primary bg-surface' : 'bg-surface text-text-secondary hover:bg-card-active'}`}
+          className={`p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 ${settings.tool === ToolType.Eraser ? 'text-primary bg-surface' : 'bg-surface text-text-secondary hover:bg-card-active'}`}
           onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Eraser }))}
         >
           {t('editor.masks.brush.eraser')}
@@ -1174,7 +1174,7 @@ export default function MasksPanel() {
                     <Text
                       as="div"
                       weight={TextWeights.medium}
-                      className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                      className="flex items-center gap-2 p-2 rounded-xl transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
                       onClick={(e) => handleAddMaskContextMenu(e, null)}
                     >
                       <div className="p-0.5">
@@ -1252,7 +1252,7 @@ export default function MasksPanel() {
                 as="div"
                 color={TextColors.primary}
                 weight={TextWeights.medium}
-                className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10"
+                className="flex items-center gap-2 p-2 rounded-xl bg-surface shadow-2xl opacity-90 ring-1 ring-black/10"
               >
                 <FolderIcon size={18} className={TEXT_COLOR_KEYS[TextColors.secondary]} />
                 <span className="flex-1 truncate">{(activeDragItem.item as MaskContainer).name}</span>
@@ -1264,7 +1264,7 @@ export default function MasksPanel() {
                 as="div"
                 color={TextColors.primary}
                 weight={TextWeights.medium}
-                className="flex items-center gap-2 p-2 rounded-md bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75"
+                className="flex items-center gap-2 p-2 rounded-xl bg-surface shadow-2xl opacity-90 ring-1 ring-black/10 ml-3.75"
               >
                 {(() => {
                   const sm = activeDragItem.item as SubMask;
@@ -1520,7 +1520,7 @@ function ContainerRow({
       <div
         {...listeners}
         {...attributes}
-        className={`flex items-center gap-2 p-2 rounded-md transition-colors group
+        className={`flex items-center gap-2 p-2 rounded-xl transition-colors group
              ${isSelected ? 'bg-surface' : 'hover:bg-card-active'}
              ${borderClass}`}
         onClick={(e) => {
@@ -1642,7 +1642,7 @@ function ContainerRow({
                   <Text
                     as="div"
                     weight={TextWeights.medium}
-                    className="flex items-center gap-2 p-2 rounded-md transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
+                    className="flex items-center gap-2 p-2 rounded-xl transition-colors transition-opacity opacity-70 hover:opacity-100 hover:bg-card-active cursor-pointer hover:text-text-primary"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddComponent(e);
@@ -1778,7 +1778,7 @@ function SubMaskRow({
       {...listeners}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`flex items-center gap-2 p-2 rounded-md transition-colors group cursor-pointer
+      className={`flex items-center gap-2 p-2 rounded-xl transition-colors group cursor-pointer
             ${isActive ? 'bg-surface' : 'hover:bg-card-active'}
             ${isOver && !isDraggingContainer ? 'border-t-2 border-accent' : ''}
             ${isDragging ? 'opacity-40 z-50' : ''}
@@ -2255,7 +2255,7 @@ function SettingsPanel({
                     key={part}
                     onClick={() => handleToggleFacePart(part)}
                     className={clsx(
-                      'px-1 py-2 text-xs leading-tight rounded-md transition-colors',
+                      'px-1 py-2 text-xs leading-tight rounded-xl transition-colors',
                       faceParts.includes(part)
                         ? 'bg-accent text-button-text'
                         : 'bg-bg-primary text-text-secondary hover:bg-card-active hover:text-text-primary',
@@ -2316,7 +2316,7 @@ function SettingsPanel({
                   variant={TextVariants.small}
                   color={TextColors.accent}
                   weight={TextWeights.medium}
-                  className="p-3 bg-card-active rounded-md border border-surface flex items-center gap-3"
+                  className="p-3 bg-card-active rounded-xl border border-surface flex items-center gap-3"
                 >
                   <Loader2 size={16} className="animate-spin shrink-0" />
                   <div className="leading-relaxed">

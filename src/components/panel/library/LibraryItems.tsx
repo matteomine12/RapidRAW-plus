@@ -178,7 +178,7 @@ const ThumbnailComponent = ({
   const ringClass = isActive
     ? 'ring-2 ring-inset ring-accent'
     : isSelected
-      ? 'ring-2 ring-inset ring-gray-400'
+      ? 'ring-2 ring-inset ring-text-secondary'
       : isForcedHover
         ? 'ring-2 ring-inset ring-hover-color'
         : 'group-hover:ring-2 group-hover:ring-inset group-hover:ring-hover-color';

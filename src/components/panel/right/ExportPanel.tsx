@@ -87,7 +87,7 @@ function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumb
   return (
     <input
       aria-label={ariaLabel}
-      className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+      className={`w-20 bg-surface text-center rounded-xl p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
         field.parsed === null ? 'border-red-500' : 'border-surface focus:border-accent'
       }`}
       disabled={disabled}
@@ -822,7 +822,7 @@ export default function ExportPanel({
               <div className="grid grid-cols-3 gap-2">
                 {FILE_FORMATS.map((format: FileFormat) => (
                   <button
-                    className={`px-2 py-1.5 rounded-md transition-colors ${fileFormat === format.id ? 'bg-accent' : 'bg-surface hover:bg-card-active'} disabled:opacity-50`}
+                    className={`px-2 py-1.5 rounded-full transition-colors ${fileFormat === format.id ? 'bg-accent' : 'bg-surface hover:bg-card-active'} disabled:opacity-50`}
                     disabled={isExporting}
                     key={format.id}
                     onClick={() => setFileFormat(format.id)}
@@ -936,7 +936,7 @@ export default function ExportPanel({
                       {t('export.destination.subfolder')}
                     </Text>
                     <input
-                      className="w-full bg-surface border border-transparent rounded-md px-3 py-2 text-sm text-text-primary focus:outline-hidden truncate"
+                      className="w-full bg-surface border border-transparent rounded-xl px-3 py-2 text-sm text-text-primary focus:outline-hidden truncate"
                       disabled={isExporting}
                       onChange={(e) => setSubfolder(e.target.value)}
                       type="text"
@@ -951,7 +951,7 @@ export default function ExportPanel({
             {numImages > 1 && (
               <Section title={t('export.sections.fileNaming')}>
                 <input
-                  className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                  className="w-full bg-surface border border-surface rounded-xl p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
                   disabled={isExporting}
                   onChange={(e) => setFilenameTemplate(e.target.value)}
                   ref={filenameInputRef}
@@ -1092,7 +1092,7 @@ export default function ExportPanel({
                           className="w-full"
                         />
                         <input
-                          className="w-24 bg-surface text-center rounded-md p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
+                          className="w-24 bg-surface text-center rounded-xl p-2 border border-surface focus:border-accent focus:ring-accent text-text-secondary focus:text-text-primary"
                           disabled={isExporting}
                           min="1"
                           onChange={(e) => setResizeValue(parseInt(e?.target?.value))}
@@ -1355,7 +1355,7 @@ export default function ExportPanel({
           className="w-full"
         >
           <Button
-            className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center transition-colors ${
+            className={`group rounded-full h-12 w-full flex items-center text-md font-bold! justify-center transition-colors ${
               status === Status.Exporting
                 ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 shadow-none'
                 : status === Status.Cancelling
