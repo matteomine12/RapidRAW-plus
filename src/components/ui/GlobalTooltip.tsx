@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import Text from './Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
+import { SPRING } from '../../utils/motion';
 
 const TOOLTIP_DELAY = 500;
 const OFFSET = 8;
@@ -183,7 +184,7 @@ export default function GlobalTooltip() {
           initial={{ opacity: 0, scale: 0.9, y: tooltip.isAbove ? 5 : -5, x: '-50%' }}
           animate={{ opacity: 1, scale: 1, y: tooltip.isAbove ? -10 : 0, x: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%' }}
-          transition={{ duration: 0.15, ease: 'easeOut' }}
+          transition={SPRING.standard}
           style={{ top: tooltip.y, left }}
           className={clsx(
             'fixed z-10000 pointer-events-none',

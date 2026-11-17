@@ -712,12 +712,12 @@ const Slider = ({
 
       <div className="relative w-full h-5">
         <div
-          className={`absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 rounded-full pointer-events-none ${
+          className={`absolute top-1/2 left-0 w-full h-2 -translate-y-1/2 rounded-full pointer-events-none ${
             trackClassName || 'bg-card-active'
           }`}
         />
         <div
-          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full pointer-events-none bg-accent/25"
+          className="absolute top-1/2 h-2 -translate-y-1/2 rounded-full pointer-events-none bg-accent/45"
           style={{
             left: `${Math.min(fillPercentage, originPercentage)}%`,
             width: `${Math.abs(fillPercentage - originPercentage)}%`,

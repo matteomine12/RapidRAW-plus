@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { LucideIcon } from 'lucide-react';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
+import { SPRING } from '../../../utils/motion';
 
 export const useMenuDismiss = (
   containerRef: React.RefObject<HTMLElement | null>,
@@ -36,7 +37,7 @@ export function ToolbarMenu({ children, className = 'w-64', isOpen, title }: Too
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.1, ease: 'easeOut' }}
+          transition={SPRING.standard}
         >
           <div className="bg-surface/90 backdrop-blur-md rounded-lg shadow-xl py-3 flex flex-col gap-1" role="menu">
             <Text

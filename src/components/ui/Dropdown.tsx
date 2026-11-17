@@ -6,6 +6,7 @@ import Input from './Input';
 import Text from './Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../types/typography';
 import clsx from 'clsx';
+import { SPRING } from '../../utils/motion';
 
 const MENU_GAP = 8;
 
@@ -173,7 +174,7 @@ const Dropdown = <T extends React.Key>({
               initial={{ opacity: 0, scale: 0.95 }}
               onMouseDown={(e) => e.stopPropagation()}
               style={menuStyle}
-              transition={{ duration: 0.1, ease: 'easeOut' }}
+              transition={SPRING.standard}
             >
               <div
                 aria-orientation="vertical"

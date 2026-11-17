@@ -13,6 +13,7 @@ import {
 import { Panel, PanelRegion } from '../../types/ui';
 import { getDropPlacement, LayoutDropData, LayoutSide, SPLIT_BAND_RATIO, SplitSlot } from '../../utils/layoutDrop';
 import PanelSwitcher, { MobilePanelSwitcher, PANEL_ICONS } from './PanelSwitcher';
+import { SPRING } from '../../utils/motion';
 
 const COLLAPSE_THRESHOLD = 200;
 
@@ -68,7 +69,7 @@ function DropHighlight({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
+      transition={SPRING.standard}
       className={clsx(
         'absolute pointer-events-none overflow-hidden rounded-lg border-2 border-accent bg-accent/10',
         className,
@@ -194,7 +195,7 @@ function SplitDropZone({ side, region, slot }: { side: LayoutSide; region: Panel
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+      transition={SPRING.standard}
       className="absolute inset-0 z-30 pointer-events-none"
     >
       <div

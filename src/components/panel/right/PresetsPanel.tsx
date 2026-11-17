@@ -358,7 +358,7 @@ function PresetItemDisplay({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            transition={SPRING.standard}
             className="w-full cursor-auto overflow-hidden"
             onClick={(e: any) => e.stopPropagation()}
             onPointerDown={(e: any) => e.stopPropagation()}

@@ -268,7 +268,7 @@ export default function PanelSwitcher({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, ...indicatorProps }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
+            transition={SPRING.standard}
             className="absolute bg-accent rounded-full pointer-events-none z-50"
           />
         )}

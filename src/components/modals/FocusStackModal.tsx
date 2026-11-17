@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import Button from '../ui/Button';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
+import { SPRING } from '../../utils/motion';
 
 interface FocusStackModalProps {
   error: string | null;
@@ -299,7 +300,7 @@ export default function FocusStackModal({
             initial={{ scale: 0.95, opacity: 0, y: -16 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: -16 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            transition={SPRING.standard}
             className="bg-surface rounded-xl shadow-2xl p-6 w-full max-w-4xl"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}

@@ -45,6 +45,38 @@
   background-image: linear-gradient(var(--app-bg-secondary), var(--app-bg-secondary)), var(--photo-gradient);
 }
 
+/* Dialogs: frosted photo-gradient card, never see-through, shaded for contrast */
+[role='dialog'] > div:first-child:not([class*='bg-transparent']),
+[class*='fixed inset-0'][class*='z-50'][class*='backdrop-blur'] > div:first-child {
+  background-color: transparent;
+  background-image: linear-gradient(var(--app-modal-shade), var(--app-modal-shade)), var(--photo-gradient);
+  background-size: 100% 100%;
+  background-attachment: scroll;
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--radius-xl);
+}
+
+/* Floating menus, tooltips and toasts: same frosted surface, smaller radius */
+[class*='bg-surface/80'],
+[class*='bg-surface/9'],
+[class*='bg-surface!'] {
+  background-color: transparent !important;
+  background-image: linear-gradient(var(--app-modal-shade), var(--app-modal-shade)), var(--photo-gradient) !important;
+  background-size: 100vw 100vh !important;
+  background-attachment: fixed !important;
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--app-border-color);
+}
+
+/* Panels read as tonal containers over the gradient */
+.bg-bg-secondary.rounded-lg,
+.bg-bg-primary.rounded-lg {
+  box-shadow: inset 0 0 0 1px var(--app-border-color);
+}
+
 @theme {
   --color-bg-primary: var(--app-bg-primary);
   --color-bg-secondary: var(--app-bg-secondary);
@@ -99,35 +131,35 @@
 
 @utility slider-input {
   &::-webkit-slider-thumb {
-    @apply h-4 w-4 appearance-none rounded-full bg-accent;
+    @apply h-5 w-5 appearance-none rounded-full bg-accent;
     transition:
-      transform 150ms ease-in-out,
-      background-color 400ms ease-in-out;
+      transform 450ms var(--ease-spring),
+      background-color 200ms ease;
   }
 
   &::-moz-range-thumb {
-    @apply h-4 w-4 rounded-full bg-accent border-none;
+    @apply h-5 w-5 rounded-full bg-accent border-none;
     transition:
-      transform 150ms ease-in-out,
-      background-color 400ms ease-in-out;
+      transform 450ms var(--ease-spring),
+      background-color 200ms ease;
   }
 
   &.slider-thumb-active::-webkit-slider-thumb {
-    @apply scale-110;
+    @apply scale-125;
   }
 
   &.slider-thumb-active::-moz-range-thumb {
-    @apply scale-110;
+    @apply scale-125;
   }
 }
 
 @utility slider-thumb-active {
   &.slider-input::-webkit-slider-thumb {
-    @apply scale-110;
+    @apply scale-125;
   }
 
   &.slider-input::-moz-range-thumb {
-    @apply scale-110;
+    @apply scale-125;
   }
 }
 
@@ -236,25 +268,25 @@
 
 @layer components {
   .slider-input::-webkit-slider-thumb {
-    @apply h-4 w-4 appearance-none rounded-full bg-accent;
+    @apply h-5 w-5 appearance-none rounded-full bg-accent;
     transition:
-      transform 150ms ease-in-out,
-      background-color 400ms ease-in-out;
+      transform 450ms var(--ease-spring),
+      background-color 200ms ease;
   }
 
   .slider-input::-moz-range-thumb {
-    @apply h-4 w-4 rounded-full bg-accent border-none;
+    @apply h-5 w-5 rounded-full bg-accent border-none;
     transition:
-      transform 150ms ease-in-out,
-      background-color 400ms ease-in-out;
+      transform 450ms var(--ease-spring),
+      background-color 200ms ease;
   }
 
   .slider-input.slider-thumb-active::-webkit-slider-thumb {
-    @apply scale-110;
+    @apply scale-125;
   }
 
   .slider-input.slider-thumb-active::-moz-range-thumb {
-    @apply scale-110;
+    @apply scale-125;
   }
 
   .temperature-gradient-track {

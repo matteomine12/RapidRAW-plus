@@ -25,6 +25,7 @@ import { LAYOUTS, type Layout, type LayoutDefinition } from './CollageVariants';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { getDevicePixelRatio } from '../../utils/displayScale';
+import { SPRING } from '../../utils/motion';
 
 interface CollageModalProps {
   isOpen: boolean;
@@ -903,7 +904,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
+            transition={SPRING.standard}
           >
             <div className="grow min-h-0 overflow-hidden">{renderContent()}</div>
             <div className="shrink-0 p-4 flex justify-end gap-3 border-t border-surface bg-bg-secondary">

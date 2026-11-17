@@ -54,7 +54,7 @@ const Switch = ({
       <Text variant={TextVariants.label} className="select-none">
         {label}
       </Text>
-      <div className="relative w-10 h-5">
+      <div className="relative w-12 h-7">
         <input
           checked={checked}
           className="sr-only"
@@ -63,14 +63,21 @@ const Switch = ({
           onChange={(e: any) => !disabled && onChange(e.target.checked)}
           type="checkbox"
         />
-        <div className={clsx('w-full h-full bg-card-active/50 rounded-full shadow-inner', trackClassName)}></div>
+        <div
+          className={clsx(
+            'w-full h-full rounded-full border-2 transition-colors',
+            checked ? 'bg-accent border-accent' : 'bg-card-active border-text-secondary/60',
+            trackClassName,
+          )}
+        ></div>
         <motion.div
-          className={clsx('absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-colors', {
-            'bg-accent': checked,
-            'bg-text-secondary/80': !checked,
+          className={clsx('absolute top-1.5 left-1.5 h-4 w-4 rounded-full', {
+            'bg-button-text': checked,
+            'bg-text-secondary': !checked,
           })}
           transition={spring}
           initial={false}
+          whileTap={{ scale: 1.35 }}
           animate={{ x: checked ? 20 : 0 }}
         />
       </div>

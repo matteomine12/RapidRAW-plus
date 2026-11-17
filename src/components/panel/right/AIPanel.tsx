@@ -428,7 +428,7 @@ const ConnectionStatus = ({
             animate={{ height: isHovered ? 'auto' : 0, opacity: isHovered ? 1 : 0, marginTop: isHovered ? '2px' : 0 }}
             className="overflow-hidden"
             initial={{ height: 0, opacity: 0, marginTop: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            transition={SPRING.standard}
           >
             {hoverContent}
           </motion.div>

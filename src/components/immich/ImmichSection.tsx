@@ -23,6 +23,7 @@ import { IMMICH_UNASSIGNED_ID, ImmichAlbum, toImmichAlbumId } from '../../utils/
 import ImmichRow from './ImmichRow';
 import ImmichTimeline from './ImmichTimeline';
 import { useImmichStore } from '../../store/useImmichStore';
+import { SPRING } from '../../utils/motion';
 
 interface ImmichSectionProps {
   header: ReactNode;
@@ -109,7 +110,7 @@ export default function ImmichSection({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            transition={SPRING.standard}
             className="overflow-hidden"
           >
             <div className="pt-1 pb-2">

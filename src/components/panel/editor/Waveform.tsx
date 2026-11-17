@@ -122,11 +122,7 @@ const HistogramView = memo(() => {
                 vectorEffect="non-scaling-stroke"
               />
             ))}
-            <path
-              d={`M255,255 L${hdrPoints.join(' L')} L510,255 Z`}
-              fill="#FFB84D"
-              fillOpacity={0.35}
-            />
+            <path d={`M255,255 L${hdrPoints.join(' L')} L510,255 Z`} fill="#FFB84D" fillOpacity={0.35} />
             <path
               d={`M${hdrPoints.join(' L')}`}
               fill="none"
@@ -652,7 +648,7 @@ function Waveform({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
+            transition={SPRING.standard}
             className="absolute inset-x-0 bottom-0 p-2 pt-6 bg-linear-to-t from-black/80 to-transparent flex justify-center z-20"
           >
             <motion.div

@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import Slider from '../ui/Slider';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { SPRING } from '../../utils/motion';
 
 interface LutEntry {
   name: string;
@@ -270,7 +271,7 @@ export default function LUTControl({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            transition={SPRING.standard}
             className="overflow-hidden"
           >
             <div className="mt-3">
@@ -296,7 +297,7 @@ export default function LUTControl({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            transition={SPRING.standard}
             className="overflow-hidden"
           >
             <div className={`${lutName ? '' : 'mt-3'} pb-1 space-y-4`}>

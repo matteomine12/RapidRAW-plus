@@ -20,6 +20,7 @@ import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useEditorStore } from '../../store/useEditorStore';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
+import { SPRING } from '../../utils/motion';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
@@ -970,7 +971,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            transition={SPRING.standard}
             className="overflow-hidden origin-top"
           >
             <div className="pt-4 pb-1 flex flex-col gap-5" onContextMenu={handleContextMenu}>
