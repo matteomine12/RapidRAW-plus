@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { Invokes } from '../types/invokes';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useProcessStore } from '../store/useProcessStore';
@@ -11,30 +13,6 @@ const HUE_BINS = 12;
 interface Palette {
   hues: [number, number, number];
   sats: [number, number, number];
-  /** Average colour of the sampled image, used as the reference when edits shift the look. */
-  meanHue: number;
-  meanSat: number;
-}
-
-interface Histogram {
-  red: number[];
-  green: number[];
-  blue: number[];
-}
-
-/** Mean channel value (0..1) of a histogram. */
-function histogramMean(bins: number[]): number {
-  let total = 0;
-  let weighted = 0;
-  for (let i = 0; i < bins.length; i++) {
-    total += bins[i];
-    weighted += bins[i] * i;
-  }
-  return total > 0 ? weighted / total / Math.max(1, bins.length - 1) : 0.5;
-}
-
-function shortestHueDelta(from: number, to: number): number {
-  return ((to - from + 540) % 360) - 180;
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
@@ -93,19 +71,26 @@ function extractPalette(img: CanvasImageSource): Palette | null {
     return null;
   }
 
+  // Exposure-neutral: scale every pixel so the image averages mid-grey. Hue and saturation then no longer
+  // depend on how bright or dark the current edit (or camera) exposure makes the picture.
+  let lumaSum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    lumaSum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+  }
+  const meanLuma = lumaSum / (data.length / 4) / 255;
+  const gain = Math.max(0.35, Math.min(6, 0.42 / Math.max(meanLuma, 0.001)));
+
   const weight = new Array<number>(HUE_BINS).fill(0);
   const hueSum = new Array<number>(HUE_BINS).fill(0);
   const satSum = new Array<number>(HUE_BINS).fill(0);
   let totalSat = 0;
-  let sumR = 0;
-  let sumG = 0;
-  let sumB = 0;
 
   for (let i = 0; i < data.length; i += 4) {
-    sumR += data[i];
-    sumG += data[i + 1];
-    sumB += data[i + 2];
-    const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+    const [h, s, l] = rgbToHsl(
+      Math.min(255, data[i] * gain),
+      Math.min(255, data[i + 1] * gain),
+      Math.min(255, data[i + 2] * gain),
+    );
     const w = s * (1 - Math.abs(2 * l - 1)) + 0.002;
     const bin = Math.floor(h / (360 / HUE_BINS)) % HUE_BINS;
     weight[bin] += w;
@@ -137,11 +122,7 @@ function extractPalette(img: CanvasImageSource): Palette | null {
   // Near-monochrome photos keep a quiet, desaturated wash instead of inventing colour.
   const cap = meanSat < 0.08 ? 0.12 : 0.85;
   const sat = (s: number) => Math.min(cap, Math.max(cap === 0.12 ? 0.04 : 0.55, s));
-  const px = SAMPLE * SAMPLE;
-  const [avgHue, avgSat] = rgbToHsl(sumR / px, sumG / px, sumB / px);
   return {
-    meanHue: avgHue,
-    meanSat: avgSat,
     hues: [picks[0].hue, picks[1].hue, picks[2].hue],
     sats: [sat(picks[0].sat), sat(picks[1].sat), sat(picks[2].sat)],
   };
@@ -173,48 +154,36 @@ async function loadSource(url: string): Promise<CanvasImageSource> {
  */
 export function usePhotoPalette() {
   const selectedPath = useEditorStore((s) => s.selectedImage?.path ?? null);
+  const isReady = useEditorStore((s) => s.selectedImage?.isReady ?? false);
+  const adjustments = useEditorStore((s) => s.adjustments);
+  const isSliderDragging = useEditorStore((s) => s.isSliderDragging);
   const activePath = useLibraryStore((s) => s.libraryActivePath);
   const firstSelected = useLibraryStore((s) => s.multiSelectedPaths[0] ?? null);
   const path = selectedPath ?? activePath ?? firstSelected;
   const thumbnail = useProcessStore((s) => (path ? s.thumbnails[path] : undefined));
-  const histogram = useEditorStore((s) => s.histogram) as Histogram | null;
   const theme = useSettingsStore((s) => s.theme);
   const hasPhoto = useRef(false);
-  const base = useRef<Palette | null>(null);
-  const editShift = useRef({ hue: 0, satRatio: 1 });
+  const renderSeq = useRef(0);
 
-  const target = () =>
-    parseFloat(
+  const paintPalette = (palette: Palette) => {
+    const lum = parseFloat(
       THEMES.find((t) => t.id === (theme || DEFAULT_THEME_ID))?.cssVariables['--app-photo-luminance'] ?? '0.1',
     );
-
-  const paint = (hues: number[], sats: number[]) => {
     const root = document.documentElement.style;
-    const lum = target();
-    hues.forEach((h, i) => {
-      const l = lightnessForLuminance(h, sats[i], lum);
+    palette.hues.forEach((h, i) => {
+      const l = lightnessForLuminance(h, palette.sats[i], lum);
       root.setProperty(
         `--photo-c${i + 1}`,
-        `hsl(${h.toFixed(0)} ${(sats[i] * 100).toFixed(0)}% ${(l * 100).toFixed(1)}%)`,
+        `hsl(${h.toFixed(0)} ${(palette.sats[i] * 100).toFixed(0)}% ${(l * 100).toFixed(1)}%)`,
       );
     });
   };
 
-  /** Paints the stored palette with the current edit shift (hue rotation and saturation change) applied. */
-  const paintBase = () => {
-    const palette = base.current;
-    if (!palette) return;
-    const { hue, satRatio } = editShift.current;
-    paint(
-      palette.hues.map((h) => (h + hue + 360) % 360),
-      palette.sats.map((sat) => Math.max(0.04, Math.min(0.9, sat * satRatio))),
-    );
-  };
-
+  // Library / quick colour: read the cached thumbnail.
   useEffect(() => {
     if (!thumbnail) {
       // Nothing to colour from yet: a neutral, colourless wash at the theme's luminance.
-      if (!hasPhoto.current) paint([0, 0, 0], [0, 0, 0]);
+      if (!hasPhoto.current) paintPalette({ hues: [0, 0, 0], sats: [0, 0, 0] });
       return;
     }
     let cancelled = false;
@@ -227,9 +196,7 @@ export function usePhotoPalette() {
           return;
         }
         hasPhoto.current = true;
-        base.current = palette;
-        editShift.current = { hue: 0, satRatio: 1 };
-        paintBase();
+        paintPalette(palette);
       })
       .catch((err) => console.warn('[photo-palette] failed to load', thumbnail, err));
     return () => {
@@ -237,24 +204,29 @@ export function usePhotoPalette() {
     };
   }, [thumbnail, theme]);
 
-  // Follow edits: the live histogram of the edited image tells how the overall colour moved versus the thumbnail.
+  // Editor: render the edited photo with exposure forced to 0 and HDR off (so it is plain SDR), then colour from that.
   useEffect(() => {
-    const palette = base.current;
-    if (!selectedPath || !histogram || !palette) return;
-    const timer = setTimeout(() => {
-      const [h, s] = rgbToHsl(
-        histogramMean(histogram.red) * 255,
-        histogramMean(histogram.green) * 255,
-        histogramMean(histogram.blue) * 255,
-      );
-      // Hue of near-grey averages is noise, so fade the rotation in only for colourful images.
-      const reliability = Math.min(1, Math.min(palette.meanSat, s) * 8);
-      editShift.current = {
-        hue: shortestHueDelta(palette.meanHue, h) * reliability,
-        satRatio: Math.max(0.4, Math.min(1.8, (s + 0.02) / (palette.meanSat + 0.02))),
-      };
-      paintBase();
-    }, 250);
+    if (!selectedPath || !isReady || isSliderDragging) return;
+    const seq = ++renderSeq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const bytes = await invoke<Uint8Array>(Invokes.GeneratePreviewForPath, {
+          path: selectedPath,
+          jsAdjustments: { ...adjustments, exposure: 0, hdrEnabled: false },
+        });
+        if (seq !== renderSeq.current) return;
+        const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' }));
+        if (seq !== renderSeq.current) return;
+        const palette = extractPalette(bitmap);
+        bitmap.close();
+        if (palette) {
+          hasPhoto.current = true;
+          paintPalette(palette);
+        }
+      } catch (err) {
+        console.warn('[photo-palette] exposure-neutral render failed', err);
+      }
+    }, 800);
     return () => clearTimeout(timer);
-  }, [histogram, selectedPath]);
+  }, [adjustments, selectedPath, isReady, isSliderDragging, theme]);
 }
