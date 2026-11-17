@@ -106,6 +106,9 @@ pub struct WgpuDisplay {
     pub standalone: bool,
     /// The surface is a float scRGB one and the shader scales into it.
     pub hdr_output: bool,
+    /// The surface has no fp16 scRGB format but offers HDR10 (PQ, Rec.2020) on `Rgb10a2Unorm`, so HDR output
+    /// uses that instead of `Rgba16Float`.
+    pub hdr10: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
     pub content_key: Option<u64>,
@@ -327,6 +330,8 @@ impl WgpuDisplay {
         } else {
             0.0
         };
+        // 1.0: the surface is HDR10, so the shader writes PQ-encoded Rec.2020 instead of scRGB.
+        self.latest_transform.extra[1] = if self.hdr_output && self.hdr10 { 1.0 } else { 0.0 };
         queue.write_buffer(
             &self.transform_buffer,
             0,
@@ -380,6 +385,16 @@ impl WgpuDisplay {
             };
             l * scale
         };
+        if self.hdr10 {
+            // HDR10 surface: PQ-encoded Rec.2020, with 1.0 (SDR white) shown at the SDR white level in nits.
+            let [pr, pg, pb] = hdr10_pq_encode([linear(r), linear(g), linear(b)]);
+            return wgpu::Color {
+                r: pr,
+                g: pg,
+                b: pb,
+                a: a as f64,
+            };
+        }
         wgpu::Color {
             r: linear(r),
             g: linear(g),
@@ -397,12 +412,14 @@ impl WgpuDisplay {
         want_hdr: bool,
     ) -> bool {
         let caps = self.surface.get_capabilities(adapter);
-        let can_hdr = surface_supports_hdr(&caps, device);
+        let can_hdr = surface_supports_hdr(&caps, device) || self.hdr10;
         let want_hdr = want_hdr && can_hdr;
         if want_hdr == self.hdr_output {
             return false;
         }
-        let format = if want_hdr {
+        let format = if want_hdr && self.hdr10 {
+            Some(wgpu::TextureFormat::Rgb10a2Unorm)
+        } else if want_hdr {
             Some(wgpu::TextureFormat::Rgba16Float)
         } else {
             sdr_swapchain_format(&caps, device)
@@ -410,6 +427,7 @@ impl WgpuDisplay {
         let Some(format) = format else {
             return false;
         };
+        set_hdr10_swapchain(want_hdr && self.hdr10);
         self.config.format = format;
         self.surface.configure(device, &self.config);
         self.pipeline = create_display_pipeline(device, &self.bind_group_layout, format);
@@ -581,6 +599,92 @@ fn create_display_pipeline(
     })
 }
 
+/// Every (format, colour space) pair the Vulkan driver offers for the surface, before wgpu filters them.
+/// wgpu only keeps fp16 when it comes with `EXTENDED_SRGB_LINEAR`, so this is how HDR offered in another
+/// form (HDR10 PQ on a 10-bit format, as NVIDIA does on Wayland) is found.
+#[cfg(target_os = "linux")]
+fn raw_vulkan_surface_formats(
+    surface: &wgpu::Surface<'_>,
+    adapter: &wgpu::Adapter,
+) -> Vec<(ash::vk::Format, ash::vk::ColorSpaceKHR)> {
+    use wgpu::hal::api::Vulkan;
+    unsafe {
+        let Some(hal_surface) = surface.as_hal::<Vulkan>() else {
+            return Vec::new();
+        };
+        let Some(raw_surface) = hal_surface.raw_native_handle() else {
+            return Vec::new();
+        };
+        let Some(hal_adapter) = adapter.as_hal::<Vulkan>() else {
+            return Vec::new();
+        };
+        let shared = hal_adapter.shared_instance();
+        let loader = ash::khr::surface::Instance::new(shared.entry(), shared.raw_instance());
+        match loader.get_physical_device_surface_formats(hal_adapter.raw_physical_device(), raw_surface) {
+            Ok(formats) => formats.into_iter().map(|f| (f.format, f.color_space)).collect(),
+            Err(e) => {
+                log::warn!("Could not list Vulkan surface formats: {e}");
+                Vec::new()
+            }
+        }
+    }
+}
+
+/// Whether HDR10 (PQ, Rec.2020) can be presented on a 10-bit surface: the driver offers it and the 10-bit
+/// format is one wgpu can use.
+#[cfg(target_os = "linux")]
+fn surface_offers_hdr10(
+    surface: &wgpu::Surface<'_>,
+    adapter: &wgpu::Adapter,
+    caps: &wgpu::SurfaceCapabilities,
+    device: &wgpu::Device,
+) -> bool {
+    use ash::vk::{ColorSpaceKHR, Format};
+    let format = wgpu::TextureFormat::Rgb10a2Unorm;
+    if !caps.formats.contains(&format) || !device.features().contains(format.required_features()) {
+        return false;
+    }
+    let raw = raw_vulkan_surface_formats(surface, adapter);
+    for (f, cs) in &raw {
+        log::info!("Vulkan surface format: {f:?} / {cs:?}");
+    }
+    raw.iter()
+        .any(|(f, cs)| *f == Format::A2B10G10R10_UNORM_PACK32 && *cs == ColorSpaceKHR::HDR10_ST2084_EXT)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn surface_offers_hdr10(
+    _surface: &wgpu::Surface<'_>,
+    _adapter: &wgpu::Adapter,
+    _caps: &wgpu::SurfaceCapabilities,
+    _device: &wgpu::Device,
+) -> bool {
+    false
+}
+
+/// Makes `Rgb10a2Unorm` swapchains use the HDR10 colour space (or the default sRGB one again).
+fn set_hdr10_swapchain(enabled: bool) {
+    #[cfg(target_os = "linux")]
+    wgpu::hal::vulkan::set_hdr10_pq(enabled);
+    #[cfg(not(target_os = "linux"))]
+    let _ = enabled;
+}
+
+/// Encodes linear Rec.709 light given in scRGB units (1.0 = 80 nits) as PQ (SMPTE ST 2084) in Rec.2020,
+/// the signal an HDR10 surface expects. Mirrors `to_surface` in `display.wgsl`.
+fn hdr10_pq_encode(scrgb: [f64; 3]) -> [f64; 3] {
+    let [r, g, b] = scrgb.map(|v| v.max(0.0) * crate::render::hdr::SCRGB_REFERENCE_NITS as f64);
+    let rec2020 = [
+        0.627_404 * r + 0.329_283 * g + 0.043_313 * b,
+        0.069_097 * r + 0.919_540 * g + 0.011_362 * b,
+        0.016_391 * r + 0.088_013 * g + 0.895_595 * b,
+    ];
+    rec2020.map(|nits| {
+        let y = (nits / 10_000.0).clamp(0.0, 1.0).powf(0.159_301_757_812_5);
+        ((0.835_937_5 + 18.851_562_5 * y) / (1.0 + 18.687_5 * y)).powf(78.843_75)
+    })
+}
+
 #[cfg(not(target_os = "android"))]
 pub fn build_wgpu_display(
     surface: wgpu::Surface<'static>,
@@ -591,11 +695,17 @@ pub fn build_wgpu_display(
     #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
-    let hdr_capable = surface_supports_hdr(&swapchain_caps, device);
+    log::info!("WGPU surface formats offered: {:?}", swapchain_caps.formats);
+    let hdr_fp16 = surface_supports_hdr(&swapchain_caps, device);
+    let hdr10 = !hdr_fp16 && surface_offers_hdr10(&surface, adapter, &swapchain_caps, device);
+    let hdr_capable = hdr_fp16 || hdr10;
     crate::render::hdr::set_surface_capable(hdr_capable);
     crate::render::hdr::refresh_global();
     let hdr_output = hdr_capable && crate::render::hdr::display_active();
-    let swapchain_format = if hdr_output {
+    set_hdr10_swapchain(hdr_output && hdr10);
+    let swapchain_format = if hdr_output && hdr10 {
+        wgpu::TextureFormat::Rgb10a2Unorm
+    } else if hdr_output {
         wgpu::TextureFormat::Rgba16Float
     } else {
         sdr_swapchain_format(&swapchain_caps, device)
@@ -644,10 +754,11 @@ pub fn build_wgpu_display(
     };
     surface.configure(device, &config);
     log::info!(
-        "WGPU display surface: {:?}, {:?} (HDR capable: {}, HDR output: {})",
+        "WGPU display surface: {:?}, {:?} (HDR capable: {}, HDR10 PQ: {}, HDR output: {})",
         swapchain_format,
         present_mode,
         hdr_capable,
+        hdr10,
         hdr_output
     );
 
@@ -724,6 +835,7 @@ pub fn build_wgpu_display(
         original_texture: None,
         standalone,
         hdr_output,
+        hdr10,
         view: DisplayView::default(),
         frame: None,
         content_key: None,

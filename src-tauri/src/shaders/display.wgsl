@@ -90,15 +90,31 @@ fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
     return select(higher, lower, v <= vec3<f32>(0.0031308));
 }
 
+// Linear Rec.709 light in scRGB units (1.0 = 80 nits) to PQ-encoded Rec.2020, the signal of an HDR10 surface.
+fn hdr10_pq(scrgb: vec3<f32>) -> vec3<f32> {
+    let nits = max(scrgb, vec3<f32>(0.0)) * 80.0;
+    let rec2020 = vec3<f32>(
+        dot(nits, vec3<f32>(0.627404, 0.329283, 0.043313)),
+        dot(nits, vec3<f32>(0.069097, 0.919540, 0.011362)),
+        dot(nits, vec3<f32>(0.016391, 0.088013, 0.895595)),
+    );
+    let y = pow(clamp(rec2020 / 10000.0, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(0.1593017578125));
+    return pow((vec3<f32>(0.8359375) + 18.8515625 * y) / (vec3<f32>(1.0) + 18.6875 * y), vec3<f32>(78.84375));
+}
+
 // Converts a sampled texel into the surface's encoding: sRGB for an SDR surface, scaled linear light
-// (scRGB, 1.0 = 80 nits) for an HDR one. `src_linear` marks textures that hold linear light.
+// (scRGB, 1.0 = 80 nits) or PQ Rec.2020 (HDR10, `extra.y`) for an HDR one. `src_linear` marks textures that hold linear light.
 fn to_surface(c: vec4<f32>, src_linear: bool) -> vec4<f32> {
     if (transform.hdr_scale > 0.0) {
         var lin = c.rgb;
         if (!src_linear) {
             lin = srgb_to_linear(lin);
         }
-        return vec4<f32>(lin * transform.hdr_scale, c.a);
+        let scrgb = lin * transform.hdr_scale;
+        if (transform.extra.y > 0.5) {
+            return vec4<f32>(hdr10_pq(scrgb), c.a);
+        }
+        return vec4<f32>(scrgb, c.a);
     }
     if (src_linear) {
         return vec4<f32>(linear_to_srgb(c.rgb), c.a);

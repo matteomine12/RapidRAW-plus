@@ -139,6 +139,7 @@ tauri-plugin-wayland-nvidia-quirk = "0.1.0"
 wayland-client = "0.31"
 wayland-backend = { version = "0.3", features = ["client_system"] }
 wayland-protocols = { version = "0.32", features = ["client"] }
+ash = "0.38"
 
 [dev-dependencies]
 naga = { version = "29", features = ["wgsl-in"] }
@@ -148,6 +149,10 @@ tauri-build = { version = "2.6", features = [] }
 sha2 = "0.11"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
 hex = "0.4"
+
+[patch.crates-io]
+# Local copy of wgpu-hal 29.0.4 that can create HDR10 (PQ) swapchains, see vendor/wgpu-hal/src/vulkan/mod.rs
+wgpu-hal = { path = "vendor/wgpu-hal" }
 
 [profile.dev]
 opt-level = 2
