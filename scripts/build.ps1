@@ -68,6 +68,9 @@ function Build-Windows([string]$RustTarget) {
     }
     if (-not (Test-Cmd 'node')) { throw 'Node.js non trovato (serve v22+). winget install OpenJS.NodeJS.LTS' }
 
+    # cargo's built-in libgit2 can fail to reach GitHub on some setups; use the system git instead
+    $env:CARGO_NET_GIT_FETCH_WITH_CLI = 'true'
+
     Write-Host ">> rustup target add $RustTarget"
     Invoke-Checked rustup @('target', 'add', $RustTarget)   # rust-toolchain.toml fissa anche la versione di Rust
 
