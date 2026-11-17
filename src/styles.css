@@ -5,17 +5,17 @@
 @property --photo-c1 {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgb(70, 80, 200);
+  initial-value: rgb(40, 40, 42);
 }
 @property --photo-c2 {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgb(190, 70, 160);
+  initial-value: rgb(40, 40, 42);
 }
 @property --photo-c3 {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgb(40, 150, 170);
+  initial-value: rgb(40, 40, 42);
 }
 
 :root {

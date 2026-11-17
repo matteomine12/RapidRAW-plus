@@ -55,7 +55,7 @@ function lightnessForLuminance(h: number, s: number, target: number): number {
 }
 
 /** Picks three representative hues from an image, weighted by how colourful each pixel is. */
-function extractPalette(img: HTMLImageElement): Palette | null {
+function extractPalette(img: CanvasImageSource): Palette | null {
   const canvas = document.createElement('canvas');
   canvas.width = SAMPLE;
   canvas.height = SAMPLE;
@@ -114,6 +114,26 @@ function extractPalette(img: HTMLImageElement): Palette | null {
 }
 
 /**
+ * Thumbnails are served from Tauri's asset protocol, which is cross-origin for the webview, so drawing an
+ * <img> would taint the canvas. Fetching the bytes and decoding them into an ImageBitmap keeps pixels readable.
+ */
+async function loadSource(url: string): Promise<CanvasImageSource> {
+  try {
+    const res = await fetch(url);
+    if (res.ok) return await createImageBitmap(await res.blob());
+  } catch {
+    // fall through to the <img> path
+  }
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+/**
  * Colours the whole app with a heavily blurred gradient drawn from the current photo.
  * Lightness comes from the active theme so text contrast is preserved.
  */
@@ -124,7 +144,7 @@ export function usePhotoPalette() {
   const path = selectedPath ?? activePath ?? firstSelected;
   const thumbnail = useProcessStore((s) => (path ? s.thumbnails[path] : undefined));
   const theme = useSettingsStore((s) => s.theme);
-  const lastKey = useRef<string | null>(null);
+  const hasPhoto = useRef(false);
 
   useEffect(() => {
     const target = parseFloat(
@@ -141,20 +161,23 @@ export function usePhotoPalette() {
       });
     };
     if (!thumbnail) {
-      if (lastKey.current === null) paint([230, 310, 190], [0.7, 0.6, 0.65]);
+      // Nothing to colour from yet: a neutral, colourless wash at the theme's luminance.
+      if (!hasPhoto.current) paint([0, 0, 0], [0, 0, 0]);
       return;
     }
-    const key = `${theme}|${thumbnail}`;
-    if (key === lastKey.current) return;
-    lastKey.current = key;
     let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (cancelled) return;
-      const palette = extractPalette(img);
-      if (palette) paint(palette.hues, palette.sats);
-    };
-    img.src = thumbnail;
+    loadSource(thumbnail)
+      .then((source) => {
+        if (cancelled) return;
+        const palette = extractPalette(source);
+        if (!palette) {
+          console.warn('[photo-palette] could not read pixels from', thumbnail);
+          return;
+        }
+        hasPhoto.current = true;
+        paint(palette.hues, palette.sats);
+      })
+      .catch((err) => console.warn('[photo-palette] failed to load', thumbnail, err));
     return () => {
       cancelled = true;
     };
