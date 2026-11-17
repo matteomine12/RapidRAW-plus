@@ -67,11 +67,11 @@ const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => 
   }, [selectedType, presetTypeOptions]);
 
   return (
-    <div className="w-full p-1.5 bg-card-active rounded-md mt-2">
+    <div className="w-full p-1.5 bg-card-active rounded-full mt-2">
       <div className="relative flex w-full">
         <motion.div
           className="absolute top-0 bottom-0 z-0 bg-accent"
-          style={{ borderRadius: 4 }}
+          style={{ borderRadius: 999 }}
           animate={bubbleStyle}
           transition={SPRING.standard}
         />
@@ -214,7 +214,7 @@ export default function ConfigurePresetModal({ isOpen, onClose, onSave, initialP
             {t('modals.configurePreset.cancel')}
           </button>
           <button
-            className="px-4 py-2 rounded-md bg-accent text-button-text font-semibold hover:bg-accent-hover disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 rounded-full bg-accent text-button-text font-semibold hover:bg-accent-hover disabled:bg-gray-500 disabled:text-white disabled:cursor-not-allowed transition-colors"
             disabled={!name.trim()}
             onClick={handleSave}
           >

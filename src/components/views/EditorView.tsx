@@ -214,7 +214,7 @@ export default function EditorView({
     layoutMode === 'compact' ? (
       <div
         className={clsx(
-          'flex overflow-hidden shrink-0 flex-col bg-bg-secondary rounded-lg',
+          'flex overflow-hidden shrink-0 flex-col bg-bg-secondary rounded-xl',
           !isResizing && !isInstantTransition && 'transition-all duration-300 ease-in-out',
         )}
         style={{

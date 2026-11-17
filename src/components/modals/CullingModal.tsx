@@ -322,7 +322,7 @@ export default function CullingModal({
           </nav>
         </div>
 
-        <div className="bg-bg-primary rounded-lg p-2 h-[50vh] overflow-y-auto">
+        <div className="bg-bg-primary rounded-xl p-2 h-[50vh] overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}

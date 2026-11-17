@@ -2708,7 +2708,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         data-wgpu-hole={isWgpuActive ? '' : undefined}
         className={clsx(
           'flex-1 flex relative overflow-hidden isolate',
-          isFullScreen ? 'rounded-none' : 'rounded-lg',
+          isFullScreen ? 'rounded-none' : 'rounded-xl',
           !isWgpuActive && (appSettings?.editorNeutralGreyBg ? 'bg-[#808080]' : 'bg-bg-secondary'),
         )}
       >

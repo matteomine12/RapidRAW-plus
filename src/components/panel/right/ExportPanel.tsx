@@ -379,7 +379,6 @@ export default function ExportPanel({
     ? (hdrColorSpace ?? undefined)
     : hdrColorSpaceOptions[0]?.value;
 
-
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
 
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
@@ -803,7 +802,7 @@ export default function ExportPanel({
   const itemLabelPlural = isLut ? t('export.labels.lut_plural') : t('export.labels.image_plural');
 
   return (
-    <div className={onClose ? 'h-full bg-bg-secondary rounded-lg flex flex-col' : 'flex flex-col h-full'}>
+    <div className={onClose ? 'h-full bg-bg-secondary rounded-xl flex flex-col' : 'flex flex-col h-full'}>
       <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
         <Text variant={TextVariants.title}>{t('export.title')}</Text>
       </div>
@@ -834,7 +833,9 @@ export default function ExportPanel({
                   </button>
                 ))}
               </div>
-              {[FileFormats.Jpeg, FileFormats.Instagram, FileFormats.Webp, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
+              {[FileFormats.Jpeg, FileFormats.Instagram, FileFormats.Webp, FileFormats.Jxl].includes(
+                fileFormat as FileFormats,
+              ) && (
                 <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
                   <Slider
                     defaultValue={90}

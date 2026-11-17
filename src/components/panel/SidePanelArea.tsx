@@ -122,7 +122,7 @@ function RegionDroppableContainer({
     <div
       ref={setNodeRef}
       className={clsx(
-        'flex h-full w-full bg-bg-secondary rounded-lg overflow-hidden border border-surface shadow-xs relative',
+        'flex h-full w-full bg-bg-secondary rounded-xl overflow-hidden border border-surface shadow-xs relative',
         isFlexRow ? 'flex-row' : 'flex-col',
       )}
     >
@@ -331,7 +331,7 @@ export default function SidePanelArea({
           onPointerDown={onWidthChange}
           onDoubleClick={onWidthReset}
         />
-        <div className="flex-1 min-w-0 min-h-0 flex bg-bg-secondary rounded-lg overflow-hidden border border-surface">
+        <div className="flex-1 min-w-0 min-h-0 flex bg-bg-secondary rounded-xl overflow-hidden border border-surface">
           <div
             className={clsx(
               'relative flex-1 min-w-0 min-h-0 transition-opacity duration-200',

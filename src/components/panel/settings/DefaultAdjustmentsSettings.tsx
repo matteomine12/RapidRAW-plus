@@ -197,7 +197,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
           {cameraRules.map((rule, index) => (
             <div
               key={cameraOptionKey(rule)}
-              className="p-4 bg-bg-primary rounded-lg border border-border-color space-y-3"
+              className="p-4 bg-bg-primary rounded-xl border border-border-color space-y-3"
             >
               <div className="flex items-center justify-between gap-2">
                 <Text variant={TextVariants.heading}>{cameraDisplayName(rule)}</Text>

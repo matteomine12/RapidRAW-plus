@@ -221,7 +221,7 @@ const CommunityPage = ({ onBackToLibrary, imageList, currentFolderPath }: Commun
   }, [presets, searchTerm, sortBy]);
 
   return (
-    <div className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-lg overflow-hidden p-4">
+    <div className="flex-1 flex flex-col h-full min-w-0 bg-bg-secondary rounded-xl overflow-hidden p-4">
       <header className="shrink-0 flex items-center justify-between mb-4 flex-wrap gap-4">
         <div className="flex items-center">
           <Button

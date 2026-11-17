@@ -151,11 +151,11 @@ const SegmentedSwitch = ({ options, value, onChange }: SegmentedSwitchProps) => 
   }, [value, options, hasSelection]);
 
   return (
-    <div className="w-full bg-bg-primary p-1 rounded-md">
+    <div className="w-full bg-bg-primary p-1 rounded-full">
       <div className="relative flex w-full">
         <motion.div
           className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
-          style={{ borderRadius: 6 }}
+          style={{ borderRadius: 999 }}
           animate={bubbleStyle}
           initial={false}
           transition={SPRING.standard}
@@ -219,11 +219,11 @@ const RatingSegmentedSwitch = ({ rating, onChange, ratingFilterOptions, operator
 
   return (
     <div className="flex w-full items-stretch gap-1">
-      <div className="flex-1 min-w-0 bg-bg-primary p-1 rounded-md">
+      <div className="flex-1 min-w-0 bg-bg-primary p-1 rounded-full">
         <div className="relative flex w-full">
           <motion.div
             className="absolute top-0 bottom-0 left-0 z-0 bg-card-active shadow-xs"
-            style={{ borderRadius: 6 }}
+            style={{ borderRadius: 999 }}
             animate={bubbleStyle}
             initial={false}
             transition={SPRING.standard}

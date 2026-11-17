@@ -1,6 +1,8 @@
 import { MouseEvent, ReactNode, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
+import { SPRING } from '../../utils/motion';
 import Text from './Text';
 import VisibilityToggle, { HIDDEN_CONTENT_CLASS } from './VisibilityToggle';
 import { TextVariants, TextWeights } from '../../types/typography';
@@ -49,7 +51,13 @@ export default function CollapsibleSection({
   };
 
   return (
-    <div className="bg-surface rounded-lg overflow-hidden shrink-0" onContextMenu={onContextMenu}>
+    <div
+      className={clsx(
+        'rounded-xl overflow-hidden shrink-0 transition-colors duration-300',
+        isOpen ? 'bg-surface ring-1 ring-border-color' : 'bg-surface/60',
+      )}
+      onContextMenu={onContextMenu}
+    >
       <div
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-card-active transition-colors duration-200"
         onClick={onToggle}
@@ -57,7 +65,7 @@ export default function CollapsibleSection({
         onMouseLeave={handleMouseLeave}
       >
         <div className="flex items-center gap-2">
-          <Text variant={TextVariants.title} weight={TextWeights.normal}>
+          <Text variant={TextVariants.title} weight={TextWeights.semibold}>
             {title}
           </Text>
           {canToggleVisibility && (
@@ -73,10 +81,9 @@ export default function CollapsibleSection({
             </div>
           )}
         </div>
-        <ChevronDown
-          className={clsx('text-accent transition-transform duration-300', { 'rotate-180': isOpen })}
-          size={20}
-        />
+        <motion.div initial={false} animate={{ rotate: isOpen ? 180 : 0 }} transition={SPRING.bouncy}>
+          <ChevronDown className="text-accent" size={20} />
+        </motion.div>
       </div>
       <div ref={wrapperRef} className="overflow-hidden transition-all duration-300 ease-in-out">
         <div

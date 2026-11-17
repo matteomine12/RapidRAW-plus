@@ -121,7 +121,7 @@ const ToneMapperSwitch = ({
         <div className="relative flex w-full">
           <motion.div
             className="absolute top-0 bottom-0 z-0 bg-accent"
-            style={{ borderRadius: 6 }}
+            style={{ borderRadius: 999 }}
             animate={bubbleStyle}
             transition={SPRING.standard}
           />

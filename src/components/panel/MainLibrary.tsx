@@ -329,7 +329,7 @@ export default function MainLibrary(props: MainLibraryProps) {
 
     return (
       <div className="flex-1 flex h-full p-2 bg-transparent">
-        <div className="flex w-full h-full bg-bg-secondary rounded-lg border border-border-color/25 overflow-hidden">
+        <div className="flex w-full h-full bg-bg-secondary rounded-xl border border-border-color/25 overflow-hidden">
           <div className="w-1/2 hidden md:block relative overflow-hidden bg-black">
             <AnimatePresence>
               <motion.img
@@ -504,7 +504,7 @@ export default function MainLibrary(props: MainLibraryProps) {
   }
 
   return (
-    <div className="relative z-20 flex-1 flex flex-col min-w-0 min-h-0 bg-bg-secondary rounded-lg overflow-visible">
+    <div className="relative z-20 flex-1 flex flex-col min-w-0 min-h-0 bg-bg-secondary rounded-xl overflow-visible">
       <header
         className="p-3 shrink-0 flex justify-between items-center border-b border-surface gap-4"
         onMouseEnter={() => setIsProgressHovered(true)}

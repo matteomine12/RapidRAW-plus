@@ -94,7 +94,7 @@ const tabPillClassName = (isActive: boolean) =>
 const HeaderToggleButton = ({ isActive, onClick, tooltip, children }: HeaderToggleButtonProps) => (
   <button
     onClick={onClick}
-    className={`min-w-6 h-6 px-1 flex items-center justify-center rounded-md text-xs font-semibold whitespace-nowrap transition-colors ${
+    className={`min-w-6 h-6 px-1 flex items-center justify-center rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
       isActive ? 'bg-accent text-button-text' : 'hover:bg-bg-secondary text-text-secondary'
     }`}
     data-tooltip={tooltip}
@@ -533,7 +533,7 @@ const MonochromePanel = ({ adjustments, setAdjustments, onDragStateChange }: Col
           <button
             key={film}
             onClick={() => handleChange('monochromeFilm', film)}
-            className={`px-2 py-1.5 rounded-md text-xs text-left truncate transition-colors ${
+            className={`px-2 py-1.5 rounded-full text-xs text-left truncate transition-colors ${
               activeFilm === film
                 ? 'bg-accent text-button-text font-semibold'
                 : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary/80'

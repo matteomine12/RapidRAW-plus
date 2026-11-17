@@ -180,7 +180,7 @@ export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave
             {t('modals.importSettings.cancel')}
           </button>
           <button
-            className="px-4 py-2 rounded-md bg-accent text-button-text font-semibold hover:bg-accent-hover transition-colors"
+            className="px-4 py-2 rounded-full bg-accent text-button-text font-semibold hover:bg-accent-hover transition-colors"
             onClick={handleSave}
           >
             {t('modals.importSettings.startImport')}

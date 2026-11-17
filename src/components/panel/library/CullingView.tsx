@@ -497,7 +497,7 @@ function CullingPreview({
       onMouseEnter={() => setHoveredCullingPath(image.path)}
       onMouseLeave={() => setHoveredCullingPath(null)}
       className={clsx(
-        'relative flex items-center justify-center w-full h-full overflow-hidden group bg-bg-primary rounded-lg shadow-sm border border-border-color/10 cursor-grab active:cursor-grabbing select-none',
+        'relative flex items-center justify-center w-full h-full overflow-hidden group bg-bg-primary rounded-xl shadow-sm border border-border-color/10 cursor-grab active:cursor-grabbing select-none',
         isFullWidth && 'col-span-2',
       )}
     >

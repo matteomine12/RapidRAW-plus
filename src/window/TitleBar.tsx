@@ -91,7 +91,7 @@ export default function TitleBar() {
   return (
     <div className="relative pt-2 px-2 w-full z-50 bg-transparent" {...outerDragProps}>
       <div
-        className="h-10 bg-bg-secondary flex justify-between items-center select-none rounded-lg overflow-hidden"
+        className="h-10 bg-bg-secondary flex justify-between items-center select-none rounded-xl overflow-hidden"
         {...outerDragProps}
       >
         <div className="flex items-center h-full">

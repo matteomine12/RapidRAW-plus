@@ -353,7 +353,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
             <motion.span
               layoutId="ai-provider-switch-bubble"
               className="absolute inset-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
+              style={{ borderRadius: 999 }}
               transition={SPRING.standard}
             />
           )}
@@ -528,7 +528,7 @@ const CanvasInputModeSwitch = ({ mode, onModeChange }: CanvasInputModeSwitchProp
             <motion.span
               layoutId="canvas-input-mode-switch-bubble"
               className="absolute inset-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
+              style={{ borderRadius: 999 }}
               transition={SPRING.standard}
             />
           )}
@@ -577,7 +577,7 @@ const PreviewModeSwitch = ({ mode, onModeChange }: PreviewModeSwitchProps) => {
             <motion.span
               layoutId="preview-mode-switch-bubble"
               className="absolute inset-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
+              style={{ borderRadius: 999 }}
               transition={SPRING.standard}
             />
           )}
@@ -1061,7 +1061,7 @@ export default function SettingsPanel({
                     <motion.span
                       layoutId="settings-category-switch-bubble"
                       className="absolute inset-0 z-0 bg-accent"
-                      style={{ borderRadius: 6 }}
+                      style={{ borderRadius: 999 }}
                       transition={SPRING.standard}
                     />
                   )}
@@ -1501,7 +1501,7 @@ export default function SettingsPanel({
                     <Text className="mb-6">{t('settings.lenses.description')}</Text>
 
                     <div className="space-y-8">
-                      <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
+                      <div className="bg-bg-primary rounded-xl p-4 border border-border-color">
                         <Text variant={TextVariants.heading} className="mb-3">
                           {t('settings.lenses.addNew')}
                         </Text>

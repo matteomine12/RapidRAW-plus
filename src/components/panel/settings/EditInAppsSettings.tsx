@@ -79,7 +79,7 @@ export default function EditInAppsSettings({ appSettings, onSettingsChange }: Ed
     <div className="space-y-4">
       <Text variant={TextVariants.small}>{t('settings.processing.editIn.description')}</Text>
       {apps.map((app, index) => (
-        <div key={index} className="p-4 bg-bg-primary rounded-lg border border-border-color space-y-3">
+        <div key={index} className="p-4 bg-bg-primary rounded-xl border border-border-color space-y-3">
           <div className="flex items-center gap-2">
             {renderField(index, 'name', t('settings.processing.editIn.name'), 'grow')}
             <Dropdown

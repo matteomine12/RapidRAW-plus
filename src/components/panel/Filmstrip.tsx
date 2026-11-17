@@ -185,7 +185,7 @@ const FilmstripThumbnail = memo(
         {...listeners}
         {...attributes}
         className={clsx(
-          'h-full w-full rounded-lg overflow-hidden cursor-pointer shrink-0 group relative transition-all duration-150 bg-surface',
+          'h-full w-full rounded-lg overflow-hidden cursor-pointer shrink-0 group relative transition-transform duration-500 ease-[var(--ease-spring)] hover:scale-[1.04] active:scale-[0.97] bg-surface',
           ringClass,
           isDragging && 'opacity-50 ring-2 ring-accent z-50',
         )}

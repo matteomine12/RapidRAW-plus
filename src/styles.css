@@ -72,6 +72,8 @@
 }
 
 /* Panels read as tonal containers over the gradient */
+.bg-bg-secondary.rounded-xl,
+.bg-bg-primary.rounded-xl,
 .bg-bg-secondary.rounded-lg,
 .bg-bg-primary.rounded-lg {
   box-shadow: inset 0 0 0 1px var(--app-border-color);
