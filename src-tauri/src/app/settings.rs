@@ -638,6 +638,15 @@ pub struct AppSettings {
     pub copy_paste_settings: CopyPasteSettings,
     #[serde(default)]
     pub raw_highlight_compression: Option<f32>,
+    /// "auto" (follow the OS), "on" (force HDR output) or "off".
+    #[serde(default)]
+    pub hdr_display_mode: Option<String>,
+    /// Display peak luminance in nits. `None` = read it from the OS.
+    #[serde(default)]
+    pub hdr_peak_nits: Option<f32>,
+    /// Luminance of SDR white in nits. `None` = read it from the OS.
+    #[serde(default)]
+    pub hdr_sdr_white_nits: Option<f32>,
     #[serde(default)]
     pub processing_backend: Option<String>,
     #[serde(default)]
@@ -872,6 +881,9 @@ impl Default for AppSettings {
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
             raw_highlight_compression: Some(2.5),
+            hdr_display_mode: Some("auto".to_string()),
+            hdr_peak_nits: None,
+            hdr_sdr_white_nits: None,
             processing_backend: Some("auto".to_string()),
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),

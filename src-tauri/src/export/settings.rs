@@ -147,11 +147,28 @@ pub struct WatermarkSettings {
     pub opacity: f32,
 }
 
+/// An HDR edit exported as JPEG XL or TIFF keeps its highlights above SDR white (linear float, intensity target set).
+/// Border, padding and watermark are composed in 8/16 bit, so those exports use the SDR rendition instead.
+pub fn wants_hdr_export(
+    adjustments: &serde_json::Value,
+    output_format: &str,
+    export_settings: &ExportSettings,
+) -> bool {
+    adjustments["hdrEnabled"].as_bool() == Some(true)
+        && matches!(output_format.to_lowercase().as_str(), "jxl" | "tif" | "tiff")
+        && export_settings.border.is_none()
+        && export_settings.pad.is_none()
+        && export_settings.watermark.is_none()
+}
+
 pub fn render_output_precision(
     output_format: &str,
     export_settings: &ExportSettings,
+    hdr: bool,
 ) -> RenderOutputPrecision {
-    if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
+    if hdr {
+        RenderOutputPrecision::HdrLinear
+    } else if matches!(output_format.to_lowercase().as_str(), "tif" | "tiff")
         && export_settings.tiff_bit_depth == TiffBitDepth::Sixteen
     {
         RenderOutputPrecision::SixteenBit

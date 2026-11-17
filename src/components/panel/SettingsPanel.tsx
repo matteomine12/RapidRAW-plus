@@ -58,6 +58,7 @@ import { useOsPlatform } from '../../hooks/useOsPlatform';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import ImmichSettings from '../immich/ImmichSettings';
+import HdrDisplaySettings from './HdrDisplaySettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
@@ -2153,6 +2154,15 @@ export default function SettingsPanel({
                       )}
                     </div>
                   </div>
+
+                  {osPlatform !== 'android' && osPlatform !== 'macos' && (
+                    <div className="p-6 bg-surface rounded-xl shadow-md">
+                      <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                        {t('settings.hdrDisplay.title')}
+                      </Text>
+                      <HdrDisplaySettings appSettings={appSettings} onSettingsChange={onSettingsChange} />
+                    </div>
+                  )}
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">

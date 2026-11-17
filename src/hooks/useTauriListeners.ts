@@ -30,7 +30,7 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   offset += pathLength;
 
   const bins = readU32();
-  let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[] } | null = null;
+  let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[]; hdr?: number[] } | null = null;
   if (bins > 0) {
     const readChannel = () => {
       const channel = new Array<number>(bins);
@@ -55,6 +55,16 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
     };
     const [rgb, luma, parade, vectorscope] = await Promise.all([readPlane(), readPlane(), readPlane(), readPlane()]);
     waveform = { width, height, rgb, luma, parade, vectorscope };
+  }
+
+  const hdrBins = offset + 4 <= buffer.byteLength ? readU32() : 0;
+  if (histogram && hdrBins > 0) {
+    const hdr = new Array<number>(hdrBins);
+    for (let i = 0; i < hdrBins; i++) {
+      hdr[i] = view.getFloat32(offset, true);
+      offset += 4;
+    }
+    histogram.hdr = hdr;
   }
 
   return { path, histogram, waveform };

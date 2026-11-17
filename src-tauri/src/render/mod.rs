@@ -5,6 +5,7 @@ pub mod color_space;
 pub mod commands;
 pub mod geometry;
 pub mod gpu;
+pub mod hdr;
 pub mod image_processing;
 pub mod options;
 pub mod preview;

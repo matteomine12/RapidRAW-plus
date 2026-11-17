@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
 import { useEditorStore } from '../store/useEditorStore';
@@ -549,6 +550,19 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
   ]);
+
+  // The display switched between SDR and HDR (or the nits changed): the shown image has to be rendered again.
+  useEffect(() => {
+    const unlisten = listen('hdr-display-changed', () => {
+      const { adjustments: current, selectedImage: image } = useEditorStore.getState();
+      if (image?.isReady) {
+        executeApplyAdjustments(current, false);
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [executeApplyAdjustments]);
 
   return {
     applyAdjustments,

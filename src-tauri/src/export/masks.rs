@@ -141,7 +141,7 @@ pub fn export_masks_for_image(
                     motion_blur: Default::default(),
                 },
                 "export_mask_image",
-                render_output_precision(extension, export_settings),
+                render_output_precision(extension, export_settings, false),
             )?;
             ensure_export_not_cancelled(cancellation_token)?;
 

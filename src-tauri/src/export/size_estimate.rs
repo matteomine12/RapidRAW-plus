@@ -6,7 +6,7 @@ use crate::decode::formats::is_raw_file;
 use crate::decode::image_loader::load_base_image_from_bytes;
 use crate::export::encode::encode_image_to_bytes;
 use crate::export::geometry::{compute_export_output_size, upscale_factor};
-use crate::export::settings::{ExportSettings, render_output_precision};
+use crate::export::settings::{ExportSettings, render_output_precision, wants_hdr_export};
 use crate::library::file_ops::read_file_mapped;
 use crate::library::sidecars::parse_virtual_path;
 use crate::masks::generation::{MaskDefinition, get_cached_or_generate_masks};
@@ -147,7 +147,7 @@ pub async fn estimate_export_sizes(
                 ),
             },
             "estimate_export_size",
-            render_output_precision(&output_format, &export_settings),
+            render_output_precision(&output_format, &export_settings, wants_hdr_export(&adjustments_clone, &output_format, &export_settings)),
         )?;
 
         let preview_bytes =
@@ -299,7 +299,7 @@ pub async fn estimate_export_sizes(
                 ),
             },
             "estimate_batch_export_size",
-            render_output_precision(&output_format, &export_settings),
+            render_output_precision(&output_format, &export_settings, wants_hdr_export(&js_adjustments, &output_format, &export_settings)),
         )?;
 
         let preview_bytes =

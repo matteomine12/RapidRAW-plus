@@ -38,6 +38,8 @@ const KEY_NAMES: Record<string, string> = {
   colorCalibration: 'Color Calibration',
   toneMapper: 'Tone Mapper',
   showClipping: 'Show Clipping',
+  hdrEnabled: 'HDR',
+  hdrMaxEv: 'HDR Headroom',
   activeTools: 'Tool Visibility',
   flareAmount: 'Flare Amount',
   glowAmount: 'Glow Amount',

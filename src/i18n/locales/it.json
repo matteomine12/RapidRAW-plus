@@ -15,6 +15,8 @@
       "reset": "Ripristina",
       "shadows": "Ombre",
       "toneMapper": "Mappatura tonale",
+      "hdr": "HDR",
+      "hdrHeadroom": "Margine HDR (stop)",
       "whites": "Bianchi"
     },
     "color": {
@@ -1863,6 +1865,25 @@
     }
   },
   "settings": {
+    "hdrDisplay": {
+      "title": "Display HDR",
+      "mode": "Uscita HDR",
+      "modeAuto": "Automatica (segue il sistema)",
+      "modeOn": "Sempre attiva",
+      "modeOff": "Disattivata",
+      "modeDesc": "Mostra le foto su un display HDR con tutta la gamma di luminosità. In automatico si attiva quando l'HDR è abilitato per il monitor nel sistema operativo. Usa \"Sempre attiva\" se il sistema non lo segnala (ad esempio sui desktop Linux diversi da KDE e GNOME).",
+      "active": "Uscita HDR attiva: picco {{peak}} nit, bianco SDR {{white}} nit, {{ev}} stop di margine.",
+      "inactive": "L'uscita HDR non è attiva, le foto sono mostrate in SDR.",
+      "unsupported": "Questo sistema o questa GPU non può mostrare l'HDR nell'editor.",
+      "detected": "Il sistema riporta: picco {{peak}} nit, bianco SDR {{white}} nit.",
+      "notDetected": "Il sistema non segnala l'HDR per questo display.",
+      "peak": "Luminosità di picco del display",
+      "peakDesc": "L'alta luce più luminosa che il monitor riesce a mostrare. Definisce quanto in alto possono arrivare le alte luci sopra il bianco SDR.",
+      "sdrWhite": "Livello del bianco SDR",
+      "sdrWhiteDesc": "La luminosità con cui viene mostrato il bianco normale (SDR). Allinealo alla luminosità dei contenuti SDR del sistema per un aspetto coerente.",
+      "useDetected": "Usa il valore riportato dal sistema",
+      "nits": "Nit"
+    },
     "categories": {
       "general": "Generale",
       "processing": "Elaborazione",

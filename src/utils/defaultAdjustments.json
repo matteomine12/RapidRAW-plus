@@ -330,6 +330,8 @@
   "sharpness": 0,
   "sharpnessThreshold": 15,
   "showClipping": false,
+  "hdrEnabled": false,
+  "hdrMaxEv": 3,
   "structure": 0,
   "temperature": 0,
   "tint": 0,

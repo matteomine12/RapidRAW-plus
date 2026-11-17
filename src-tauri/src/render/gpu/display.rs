@@ -13,13 +13,16 @@ pub struct DisplayTransform {
     pub image_size: [f32; 2],
     pub texture_size: [f32; 2],
     pub pixelated: f32,
-    pub _pad: f32,
+    /// scRGB scale (SDR white nits / 80) when the surface is HDR, 0 for an SDR surface.
+    pub hdr_scale: f32,
     pub bg_primary: [f32; 4],
     pub bg_secondary: [f32; 4],
     pub original_size: [f32; 2],
     pub split_origin: [f32; 2],
     pub split_normal: [f32; 2],
     pub split_offset: [f32; 2],
+    /// `[source_is_linear, 0, 0, 0]`: the shown texture holds linear light (HDR render) rather than 8-bit sRGB.
+    pub extra: [f32; 4],
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -37,13 +40,14 @@ impl Default for DisplayTransform {
             image_size: [100.0, 100.0],
             texture_size: [100.0, 100.0],
             pixelated: 0.0,
-            _pad: 0.0,
+            hdr_scale: 0.0,
             bg_primary: [24.0 / 255.0, 24.0 / 255.0, 24.0 / 255.0, 1.0],
             bg_secondary: [35.0 / 255.0, 35.0 / 255.0, 35.0 / 255.0, 1.0],
             original_size: [100.0, 100.0],
             split_origin: [0.0, 0.0],
             split_normal: [0.0, 0.0],
             split_offset: [0.0, 0.0],
+            extra: [0.0; 4],
         }
     }
 }
@@ -100,6 +104,8 @@ pub struct WgpuDisplay {
     pub edited_view: Option<wgpu::TextureView>,
     pub original_texture: Option<(wgpu::Texture, wgpu::TextureView)>,
     pub standalone: bool,
+    /// The surface is a float scRGB one and the shader scales into it.
+    pub hdr_output: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
     pub content_key: Option<u64>,
@@ -115,12 +121,16 @@ impl WgpuDisplay {
         device: &wgpu::Device,
         width: u32,
         height: u32,
+        linear: bool,
     ) -> &wgpu::Texture {
-        if self
-            .original_texture
-            .as_ref()
-            .is_none_or(|(t, _)| t.width() != width || t.height() != height)
-        {
+        let format = if linear {
+            wgpu::TextureFormat::Rgba16Float
+        } else {
+            wgpu::TextureFormat::Rgba8Unorm
+        };
+        if self.original_texture.as_ref().is_none_or(|(t, _)| {
+            t.width() != width || t.height() != height || t.format() != format
+        }) {
             let texture = device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("Original Display Texture"),
                 size: wgpu::Extent3d {
@@ -131,7 +141,7 @@ impl WgpuDisplay {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             });
@@ -181,7 +191,9 @@ impl WgpuDisplay {
         image_size: [f32; 2],
         texture_size: [f32; 2],
         content: Option<u64>,
+        linear: bool,
     ) {
+        self.set_source_linear(linear);
         self.latest_transform.image_size = image_size;
         self.latest_transform.texture_size = texture_size;
         self.edited_view = Some(view.clone());
@@ -200,6 +212,11 @@ impl WgpuDisplay {
         self.flush(device, queue);
     }
 
+    /// Tells the shader whether the textures it samples hold linear light (HDR render) or 8-bit sRGB.
+    pub fn set_source_linear(&mut self, linear: bool) {
+        self.latest_transform.extra[0] = if linear { 1.0 } else { 0.0 };
+    }
+
     pub fn show_frame(
         &mut self,
         device: &wgpu::Device,
@@ -209,8 +226,10 @@ impl WgpuDisplay {
         max_dimension: u32,
     ) {
         let area = |dims: [u32; 2]| dims[0] as u64 * dims[1] as u64;
+        let format = source.format();
         let reusable = self.frame.as_ref().is_some_and(|frame| {
-            frame.capacity[0] >= size[0]
+            frame.texture.format() == format
+                && frame.capacity[0] >= size[0]
                 && frame.capacity[1] >= size[1]
                 && area(frame.capacity) <= 4 * area(size)
         });
@@ -226,7 +245,7 @@ impl WgpuDisplay {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             });
@@ -262,6 +281,7 @@ impl WgpuDisplay {
             size.map(|dim| dim as f32),
             capacity.map(|dim| dim as f32),
             None,
+            format == wgpu::TextureFormat::Rgba16Float,
         );
     }
 
@@ -302,6 +322,11 @@ impl WgpuDisplay {
     }
 
     pub fn flush(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+        self.latest_transform.hdr_scale = if self.hdr_output {
+            crate::render::hdr::scrgb_scale()
+        } else {
+            0.0
+        };
         queue.write_buffer(
             &self.transform_buffer,
             0,
@@ -332,6 +357,69 @@ impl WgpuDisplay {
         ];
         self.latest_transform.clip = [0.0, 0.0, surface_w, surface_h];
         self.latest_transform.window = [surface_w, surface_h];
+    }
+
+    /// The background in the surface's own encoding (sRGB values for an SDR surface, scaled linear for scRGB).
+    fn clear_color(&self) -> wgpu::Color {
+        let [r, g, b, a] = self.latest_transform.bg_primary;
+        if !self.hdr_output {
+            return wgpu::Color {
+                r: r as f64,
+                g: g as f64,
+                b: b as f64,
+                a: a as f64,
+            };
+        }
+        let scale = crate::render::hdr::scrgb_scale() as f64;
+        let linear = |v: f32| {
+            let v = v.clamp(0.0, 1.0) as f64;
+            let l = if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            };
+            l * scale
+        };
+        wgpu::Color {
+            r: linear(r),
+            g: linear(g),
+            b: linear(b),
+            a: a as f64,
+        }
+    }
+
+    /// Switches the surface between SDR and scRGB (float) output, e.g. when HDR is turned on in the OS or in
+    /// the settings. Returns whether the mode changed; the shown image is dropped and must be rendered again.
+    pub fn set_hdr_output(
+        &mut self,
+        device: &wgpu::Device,
+        adapter: &wgpu::Adapter,
+        want_hdr: bool,
+    ) -> bool {
+        let caps = self.surface.get_capabilities(adapter);
+        let can_hdr = surface_supports_hdr(&caps, device);
+        let want_hdr = want_hdr && can_hdr;
+        if want_hdr == self.hdr_output {
+            return false;
+        }
+        let format = if want_hdr {
+            Some(wgpu::TextureFormat::Rgba16Float)
+        } else {
+            sdr_swapchain_format(&caps, device)
+        };
+        let Some(format) = format else {
+            return false;
+        };
+        self.config.format = format;
+        self.surface.configure(device, &self.config);
+        self.pipeline = create_display_pipeline(device, &self.bind_group_layout, format);
+        self.hdr_output = want_hdr;
+        self.frame = None;
+        self.original_texture = None;
+        self.edited_view = None;
+        self.current_bind_group = None;
+        log::info!("WGPU display surface switched to {:?}", format);
+        true
     }
 
     fn render(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
@@ -366,12 +454,7 @@ impl WgpuDisplay {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: self.latest_transform.bg_primary[0] as f64,
-                            g: self.latest_transform.bg_primary[1] as f64,
-                            b: self.latest_transform.bg_primary[2] as f64,
-                            a: self.latest_transform.bg_primary[3] as f64,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color()),
                         store: wgpu::StoreOp::Store,
                     },
                     depth_slice: None,
@@ -422,6 +505,82 @@ impl WgpuDisplay {
     }
 }
 
+/// Whether the surface can present half-float scRGB (HDR) on this adapter.
+fn surface_supports_hdr(caps: &wgpu::SurfaceCapabilities, device: &wgpu::Device) -> bool {
+    let format = wgpu::TextureFormat::Rgba16Float;
+    caps.formats.contains(&format) && device.features().contains(format.required_features())
+}
+
+/// The 8-bit (or 10-bit on Linux) surface format used for SDR output.
+fn sdr_swapchain_format(
+    caps: &wgpu::SurfaceCapabilities,
+    device: &wgpu::Device,
+) -> Option<wgpu::TextureFormat> {
+    let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());
+    #[cfg(target_os = "linux")]
+    let preferred = [
+        wgpu::TextureFormat::Rgb10a2Unorm,
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+    ]
+    .into_iter()
+    .find(|f| caps.formats.contains(f) && usable(f));
+    #[cfg(not(target_os = "linux"))]
+    let preferred: Option<wgpu::TextureFormat> = None;
+    preferred
+        .or_else(|| {
+            caps.formats
+                .iter()
+                .copied()
+                .find(|f| !f.is_srgb() && *f != wgpu::TextureFormat::Rgba16Float && usable(f))
+        })
+        .or_else(|| caps.formats.iter().copied().find(usable))
+}
+
+fn create_display_pipeline(
+    device: &wgpu::Device,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    swapchain_format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("Display Shader"),
+        source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/display.wgsl").into()),
+    });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("Display Pipeline Layout"),
+        bind_group_layouts: &[Some(bind_group_layout)],
+        immediate_size: 0,
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("Display Pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: swapchain_format,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleStrip,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview_mask: NonZero::new(0),
+        cache: None,
+    })
+}
+
 #[cfg(not(target_os = "android"))]
 pub fn build_wgpu_display(
     surface: wgpu::Surface<'static>,
@@ -432,27 +591,16 @@ pub fn build_wgpu_display(
     #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] platform: PlatformSurface,
 ) -> Result<WgpuDisplay, String> {
     let swapchain_caps = surface.get_capabilities(adapter);
-    let usable = |f: &wgpu::TextureFormat| device.features().contains(f.required_features());
-    #[cfg(target_os = "linux")]
-    let preferred = [
-        wgpu::TextureFormat::Rgb10a2Unorm,
-        wgpu::TextureFormat::Bgra8Unorm,
-        wgpu::TextureFormat::Rgba8Unorm,
-    ]
-    .into_iter()
-    .find(|f| swapchain_caps.formats.contains(f) && usable(f));
-    #[cfg(not(target_os = "linux"))]
-    let preferred: Option<wgpu::TextureFormat> = None;
-    let swapchain_format = preferred
-        .or_else(|| {
-            swapchain_caps
-                .formats
-                .iter()
-                .copied()
-                .find(|f| !f.is_srgb() && usable(f))
-        })
-        .or_else(|| swapchain_caps.formats.iter().copied().find(usable))
-        .ok_or("Surface is not supported by the GPU adapter")?;
+    let hdr_capable = surface_supports_hdr(&swapchain_caps, device);
+    crate::render::hdr::set_surface_capable(hdr_capable);
+    crate::render::hdr::refresh_global();
+    let hdr_output = hdr_capable && crate::render::hdr::display_active();
+    let swapchain_format = if hdr_output {
+        wgpu::TextureFormat::Rgba16Float
+    } else {
+        sdr_swapchain_format(&swapchain_caps, device)
+            .ok_or("Surface is not supported by the GPU adapter")?
+    };
 
     let alpha_mode = if cfg!(target_os = "windows")
         && swapchain_caps
@@ -496,15 +644,12 @@ pub fn build_wgpu_display(
     };
     surface.configure(device, &config);
     log::info!(
-        "WGPU display surface: {:?}, {:?}",
+        "WGPU display surface: {:?}, {:?} (HDR capable: {}, HDR output: {})",
         swapchain_format,
-        present_mode
+        present_mode,
+        hdr_capable,
+        hdr_output
     );
-
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Display Shader"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../../shaders/display.wgsl").into()),
-    });
 
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("Display BGL"),
@@ -548,40 +693,7 @@ pub fn build_wgpu_display(
         ],
     });
 
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: Some("Display Pipeline Layout"),
-        bind_group_layouts: &[Some(&bind_group_layout)],
-        immediate_size: 0,
-    });
-
-    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("Display Pipeline"),
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: Some("vs_main"),
-            buffers: &[],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: Some("fs_main"),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: swapchain_format,
-                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: Default::default(),
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleStrip,
-            ..Default::default()
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview_mask: NonZero::new(0),
-        cache: None,
-    });
+    let pipeline = create_display_pipeline(device, &bind_group_layout, swapchain_format);
 
     let transform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("Transform Buffer"),
@@ -611,6 +723,7 @@ pub fn build_wgpu_display(
         edited_view: None,
         original_texture: None,
         standalone,
+        hdr_output,
         view: DisplayView::default(),
         frame: None,
         content_key: None,

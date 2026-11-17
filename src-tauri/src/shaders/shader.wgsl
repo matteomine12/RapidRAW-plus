@@ -92,9 +92,9 @@ struct GlobalAdjustments {
     vignette_center_y: f32,
     _pad_lut5: f32,
 
-    _pad_agx1: f32,
-    _pad_agx2: f32,
-    _pad_agx3: f32,
+    hdr_peak: f32,
+    hdr_ev0: f32,
+    hdr_ev1: f32,
     agx_pipe_to_rendering_matrix: mat3x3<f32>,
     agx_rendering_to_pipe_matrix: mat3x3<f32>,
     wb_rgb_to_lms_matrix: mat3x3<f32>,
@@ -329,6 +329,8 @@ const BLACK_TOE_END: f32 = 0.3;
 const BLACK_TOE_GAIN: f32 = 16.0;
 
 override HIGH_PRECISION_OUTPUT: u32 = 0u;
+// 1 = write linear light for an HDR display / export (1.0 = SDR white, up to `hdr_peak`); needs an f16 target.
+override HDR_OUTPUT: u32 = 0u;
 override FEATURES: u32 = 0xFFFFFFFFu;
 override HSL_PROBE: u32 = 0u;
 
@@ -2328,7 +2330,8 @@ fn main(
         final_rgb += vec3<f32>(grained - luma);
     }
 
-    if (adjustments.global.show_clipping == 1u) {
+    // on an HDR render the overlay shows the range above SDR white instead (below)
+    if (adjustments.global.show_clipping == 1u && !(HDR_OUTPUT == 1u && adjustments.global.hdr_peak > 1.0)) {
         let HIGHLIGHT_WARNING_COLOR = vec3<f32>(1.0, 0.0, 0.0);
         let SHADOW_WARNING_COLOR = vec3<f32>(0.0, 0.0, 1.0);
         let HIGHLIGHT_CLIP_THRESHOLD = 0.998;
@@ -2338,6 +2341,51 @@ fn main(
         } else if (any(final_rgb < vec3<f32>(SHADOW_CLIP_THRESHOLD))) {
             final_rgb = SHADOW_WARNING_COLOR;
         }
+    }
+
+    if (HDR_OUTPUT == 1u) {
+        // HDR as in LightCraft (`ToneMap::hdr`): below 1.5 EV over mid grey the HDR render equals the
+        // SDR one; above it the highlights gain up to `peak - 1` more along a smoothstep in scene stops
+        // that ends one stop past the SDR white point moved up by the headroom. What clips in SDR thus
+        // moves into the display's headroom, monotone and never above the peak.
+        let sdr_linear = srgb_to_linear(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)));
+        var hdr_linear = sdr_linear;
+        let peak = max(adjustments.global.hdr_peak, 1.0);
+        if (peak > 1.0) {
+            const GREY: f32 = 0.18;
+            const HDR_FROM_EV: f32 = 1.5;
+            let uses_agx = has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u;
+            // scene stops over grey where the SDR render reaches white
+            let white_ev = select(log2(1.0 / GREY), AGX_MAX_EV, uses_agx);
+            let top = max(white_ev + log2(peak) + 1.0, HDR_FROM_EV + 0.5);
+            let scene_ev = log2(max(get_luma(max(composite_rgb_linear, vec3<f32>(0.0))), 1.0e-6) / GREY);
+            let rise = smoothstep(HDR_FROM_EV, top, scene_ev);
+            let lift = (peak - 1.0) * rise;
+            let sdr_luma = max(get_luma(sdr_linear), 1.0e-4);
+            let target_luma = min(sdr_luma + lift, peak);
+            // Gain on the SDR rendition keeps shadows and midtones identical to it...
+            let gained = sdr_linear * (target_luma / sdr_luma);
+            // ...but where the SDR render clips, its channels have already lost their hue (a bright orange
+            // sky goes white). The HDR highlights take their colour from the scene instead: the
+            // scene's chroma (colour at unit luminance) at the target luminance, so they keep their saturation.
+            let scene_rgb = max(composite_rgb_linear, vec3<f32>(0.0));
+            let scene_luma = max(get_luma(scene_rgb), 1.0e-6);
+            var kept = scene_rgb / scene_luma * target_luma;
+            kept *= min(1.0, peak / max(max(kept.r, max(kept.g, kept.b)), 1.0e-6));
+            hdr_linear = mix(gained, kept, clamp(rise * 3.0, 0.0, 1.0));
+            if (adjustments.global.show_clipping == 1u) {
+                // Visualize HDR: what rises above SDR white is painted by how many stops it is above it
+                // (yellow < 1, orange < 2, red < 3, magenta beyond); the rest is dimmed.
+                let above = log2(max(get_luma(hdr_linear), 1.0e-6));
+                var band = sdr_linear * 0.35;
+                if (above > 0.03) {
+                    band = select(select(select(vec3<f32>(1.0, 0.9, 0.2), vec3<f32>(1.0, 0.55, 0.1), above >= 1.0), vec3<f32>(1.0, 0.15, 0.1), above >= 2.0), vec3<f32>(0.9, 0.2, 0.9), above >= 3.0);
+                }
+                hdr_linear = band;
+            }
+        }
+        textureStore(output_texture, id.xy, vec4<f32>(min(hdr_linear, vec3<f32>(peak)), original_alpha));
+        return;
     }
 
     if (HIGH_PRECISION_OUTPUT == 0u) {

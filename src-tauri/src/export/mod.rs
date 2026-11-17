@@ -34,7 +34,9 @@ use crate::export::masks::export_masks_for_image;
 use crate::export::original::{
     load_export_source_image, original_export_adjustments, original_output_path,
 };
-use crate::export::settings::{ExportAdjustmentsMode, ExportSettings, render_output_precision};
+use crate::export::settings::{
+    ExportAdjustmentsMode, ExportSettings, render_output_precision, wants_hdr_export,
+};
 use crate::export::tasks::{
     ExportTaskGuard, ensure_export_not_cancelled, estimate_export_memory, finish_export_task,
     register_export_task,
@@ -162,7 +164,11 @@ fn process_image_for_export(
         is_raw,
         "process_image_for_export",
         app_handle,
-        render_output_precision(output_format, export_settings),
+        render_output_precision(
+            output_format,
+            export_settings,
+            wants_hdr_export(js_adjustments, output_format, export_settings),
+        ),
     )?;
 
     apply_export_geometry_and_watermark(processed_image, export_settings).map(|(image, _)| image)

@@ -29,6 +29,15 @@ pub enum RenderOutputPrecision {
     #[default]
     EightBit,
     SixteenBit,
+    /// Linear light in half floats, 1.0 = SDR white, highlights up to the edit's HDR peak.
+    HdrLinear,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PipelineMode {
+    Standard = 0,
+    HighPrecision = 1,
+    Hdr = 2,
 }
 
 pub struct RenderRequest<'a> {
@@ -194,6 +203,7 @@ pub struct GpuProcessor {
     pub tile_output_texture_view: wgpu::TextureView,
     full_image_size: wgpu::Extent3d,
     display_textures: std::sync::OnceLock<DisplayTextures>,
+    hdr_display_textures: std::sync::OnceLock<DisplayTextures>,
     pub readback_pool: ReadbackPool,
 }
 
@@ -240,6 +250,65 @@ pub struct AnalyticsReadback {
     pub width: u32,
     pub height: u32,
     pub row_stride: usize,
+    /// The buffer holds half-float linear light (8 bytes per pixel) instead of 8-bit sRGB.
+    pub hdr: bool,
+}
+
+/// Turns rows of half-float linear light into 8-bit sRGB for the histogram and waveform.
+fn hdr_rows_to_srgb8(
+    data: &[u8],
+    width: u32,
+    height: u32,
+    row_stride: usize,
+) -> (Vec<u8>, Vec<u32>) {
+    use crate::render::analytics::{HDR_BINS, HDR_RANGE_EV};
+    use rayon::prelude::*;
+    let width = width as usize;
+    let mut out = vec![0u8; width * height as usize * 4];
+    let bins = out
+        .par_chunks_mut(width * 4)
+        .enumerate()
+        .map(|(y, row)| {
+            let mut bins = vec![0u32; HDR_BINS];
+            let start = y * row_stride;
+            let Some(src) = data.get(start..start + width * 8) else {
+                return bins;
+            };
+            for (px, dst) in src.chunks_exact(8).zip(row.chunks_exact_mut(4)) {
+                let mut rgb = [0.0f32; 3];
+                for c in 0..3 {
+                    let value = f16::from_le_bytes([px[c * 2], px[c * 2 + 1]]).to_f32();
+                    rgb[c] = if value.is_finite() { value.max(0.0) } else { 0.0 };
+                }
+                let luma = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+                if luma > 1.0 {
+                    let ev = luma.log2();
+                    let bin = ((ev / HDR_RANGE_EV) * HDR_BINS as f32) as usize;
+                    bins[bin.min(HDR_BINS - 1)] += 1;
+                }
+                for c in 0..3 {
+                    let linear = rgb[c].clamp(0.0, 1.0);
+                    let srgb = if linear <= 0.003_130_8 {
+                        linear * 12.92
+                    } else {
+                        1.055 * linear.powf(1.0 / 2.4) - 0.055
+                    };
+                    dst[c] = (srgb * 255.0 + 0.5) as u8;
+                }
+                dst[3] = 255;
+            }
+            bins
+        })
+        .reduce(
+            || vec![0u32; HDR_BINS],
+            |mut a, b| {
+                for (x, y) in a.iter_mut().zip(b) {
+                    *x += y;
+                }
+                a
+            },
+        );
+    (out, bins)
 }
 
 pub fn analytics_readback_sender() -> &'static std::sync::mpsc::Sender<AnalyticsReadback> {
@@ -281,17 +350,37 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
 
     if let Ok(Ok(())) = rx.recv() {
         let analytics = readback.analytics;
-        let _ = analytics.sender.send(AnalyticsJob {
-            path: analytics.path,
-            frame: AnalyticsFrame {
-                data: AnalyticsPixels::Mapped(PooledReadback {
+        let (data, row_stride, hdr_bins) = if readback.hdr {
+            let (converted, bins) = {
+                let view = readback.buffer.slice(..).get_mapped_range();
+                hdr_rows_to_srgb8(&view, readback.width, readback.height, readback.row_stride)
+            };
+            readback.buffer.unmap();
+            recycle_readback_buffer(&readback.pool, readback.buffer.clone());
+            (
+                AnalyticsPixels::Owned(converted),
+                readback.width as usize * 4,
+                Some(bins),
+            )
+        } else {
+            (
+                AnalyticsPixels::Mapped(PooledReadback {
                     view: Some(readback.buffer.slice(..).get_mapped_range()),
                     buffer: readback.buffer,
                     pool: readback.pool,
                 }),
+                readback.row_stride,
+                None,
+            )
+        };
+        let _ = analytics.sender.send(AnalyticsJob {
+            path: analytics.path,
+            frame: AnalyticsFrame {
+                data,
                 width: readback.width,
                 height: readback.height,
-                row_stride: readback.row_stride,
+                row_stride,
+                hdr_bins,
             },
             compute_waveform: analytics.compute_waveform,
             active_waveform_channel: analytics.active_waveform_channel,
@@ -430,6 +519,7 @@ impl GpuProcessor {
             tile_output_texture_view,
             full_image_size,
             display_textures: std::sync::OnceLock::new(),
+            hdr_display_textures: std::sync::OnceLock::new(),
             readback_pool: Arc::new(std::sync::Mutex::new(Vec::new())),
         })
     }
@@ -1136,22 +1226,27 @@ impl GpuProcessor {
         (view, sampler)
     }
 
-    fn main_pipeline_for(&self, high_precision: bool, features: u32) -> wgpu::ComputePipeline {
-        let (generic, shader, layout) = if high_precision {
-            let hp = self.high_precision_pipeline();
-            (&hp.pipeline, &hp.shader, &hp.layout)
-        } else {
-            (
+    fn main_pipeline_for(&self, mode: PipelineMode, features: u32) -> wgpu::ComputePipeline {
+        let (generic, shader, layout) = match mode {
+            PipelineMode::Standard => (
                 &self.pipelines.main_pipeline,
                 &self.pipelines.main_shader_module,
                 &self.pipelines.main_pipeline_layout,
-            )
+            ),
+            PipelineMode::HighPrecision => {
+                let hp = self.high_precision_pipeline();
+                (&hp.pipeline, &hp.shader, &hp.layout)
+            }
+            PipelineMode::Hdr => {
+                let hp = self.high_precision_pipeline();
+                (self.hdr_pipeline(), &hp.shader, &hp.layout)
+            }
         };
         if features == ALL_SHADER_FEATURES {
             return generic.clone();
         }
 
-        let key = (high_precision, features);
+        let key = (mode as u8, features);
         let mut pipelines = self
             .pipelines
             .specialized_pipelines
@@ -1171,8 +1266,11 @@ impl GpuProcessor {
         let specialized_pipelines = Arc::clone(&self.pipelines.specialized_pipelines);
         std::thread::spawn(move || {
             let mut constants = vec![("FEATURES", features as f64)];
-            if high_precision {
+            if mode != PipelineMode::Standard {
                 constants.push(("HIGH_PRECISION_OUTPUT", 1.0));
+            }
+            if mode == PipelineMode::Hdr {
+                constants.push(("HDR_OUTPUT", 1.0));
             }
             let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some("Specialized Compute Pipeline"),
@@ -1210,15 +1308,21 @@ impl GpuProcessor {
         })
     }
 
-    pub fn display_textures(&self) -> &DisplayTextures {
-        self.display_textures.get_or_init(|| {
+    /// The textures the display shows: 8-bit sRGB, or half-float linear light when the display is HDR.
+    pub fn display_textures_for(&self, hdr: bool) -> &DisplayTextures {
+        let (slot, format) = if hdr {
+            (&self.hdr_display_textures, wgpu::TextureFormat::Rgba16Float)
+        } else {
+            (&self.display_textures, wgpu::TextureFormat::Rgba8Unorm)
+        };
+        slot.get_or_init(|| {
             let descriptor = |label| wgpu::TextureDescriptor {
                 label: Some(label),
                 size: self.full_image_size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING
                     | wgpu::TextureUsages::COPY_DST
                     | wgpu::TextureUsages::COPY_SRC,
@@ -1269,6 +1373,25 @@ impl GpuProcessor {
                 shader,
                 layout,
             }
+        })
+    }
+
+    fn hdr_pipeline(&self) -> &wgpu::ComputePipeline {
+        self.pipelines.hdr_pipeline.get_or_init(|| {
+            let hp = self.high_precision_pipeline();
+            self.context
+                .device
+                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                    label: Some("HDR Compute Pipeline"),
+                    layout: Some(&hp.layout),
+                    module: &hp.shader,
+                    entry_point: Some("main"),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[("HIGH_PRECISION_OUTPUT", 1.0), ("HDR_OUTPUT", 1.0)],
+                        ..Default::default()
+                    },
+                    cache: None,
+                })
         })
     }
 
@@ -1359,18 +1482,21 @@ impl GpuProcessor {
             );
         }
 
-        let high_precision_tile = if output_precision == RenderOutputPrecision::SixteenBit {
+        let hdr_output = output_precision == RenderOutputPrecision::HdrLinear;
+        let high_precision_tile = if output_precision != RenderOutputPrecision::EightBit {
             Some(self.high_precision_tile())
         } else {
             None
         };
+        let pipeline_mode = match output_precision {
+            RenderOutputPrecision::EightBit => PipelineMode::Standard,
+            RenderOutputPrecision::SixteenBit => PipelineMode::HighPrecision,
+            RenderOutputPrecision::HdrLinear => PipelineMode::Hdr,
+        };
         let output_pipeline = if request.hsl_probe {
             self.hsl_probe_pipeline().clone()
         } else {
-            self.main_pipeline_for(
-                high_precision_tile.is_some(),
-                shader_features(&request.adjustments),
-            )
+            self.main_pipeline_for(pipeline_mode, shader_features(&request.adjustments))
         };
         let (output_bgl, output_tile_texture, output_tile_view, bytes_per_pixel) =
             if let Some(high_precision_tile) = high_precision_tile {
@@ -1430,7 +1556,9 @@ impl GpuProcessor {
         };
         let mut final_pixels = match output_precision {
             RenderOutputPrecision::EightBit => RenderedPixels::U8(vec![0u8; output_len]),
-            RenderOutputPrecision::SixteenBit => RenderedPixels::U16(vec![0u16; output_len]),
+            RenderOutputPrecision::SixteenBit | RenderOutputPrecision::HdrLinear => {
+                RenderedPixels::U16(vec![0u16; output_len])
+            }
         };
 
         let start_tile_x = bounds.x / TILE_SIZE;
@@ -1677,7 +1805,7 @@ impl GpuProcessor {
                 if output_to_display {
                     main_encoder.copy_texture_to_texture(
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.tile_output_texture,
+                            texture: output_tile_texture,
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: crop_x_start,
@@ -1687,7 +1815,7 @@ impl GpuProcessor {
                             aspect: wgpu::TextureAspect::All,
                         },
                         wgpu::TexelCopyTextureInfo {
-                            texture: &self.display_textures().working_texture,
+                            texture: &self.display_textures_for(hdr_output).working_texture,
                             mip_level: 0,
                             origin: wgpu::Origin3d {
                                 x: x_start,

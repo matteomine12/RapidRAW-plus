@@ -77,12 +77,41 @@ const HistogramView = memo(() => {
     { key: 'blue', color: '#4D96FF', data: histogram.blue },
   ];
 
+  const hdr: number[] = histogram.hdr || [];
+  const hdrWidth = hdr.length > 0 ? 64 : 0;
+  const hdrBarWidth = hdr.length > 0 ? hdrWidth / hdr.length : 0;
+
   return (
     <svg
-      viewBox="0 0 255 255"
+      viewBox={`0 0 ${255 + hdrWidth} 255`}
       className="w-full h-full overflow-visible pointer-events-none"
       preserveAspectRatio="none"
     >
+      {hdr.length > 0 && (
+        <g>
+          <line
+            x1={255}
+            y1={0}
+            x2={255}
+            y2={255}
+            stroke="#FFB84D"
+            strokeOpacity={0.6}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+          {hdr.map((h, i) => (
+            <rect
+              key={i}
+              x={255 + i * hdrBarWidth}
+              y={255 - h * 255}
+              width={hdrBarWidth}
+              height={h * 255}
+              fill="#FFB84D"
+              fillOpacity={0.55}
+            />
+          ))}
+        </g>
+      )}
       {channels.map((ch) => {
         if (!ch.data || ch.data.length === 0) return null;
         return (

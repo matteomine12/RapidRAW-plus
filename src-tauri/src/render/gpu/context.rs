@@ -29,6 +29,11 @@ pub fn register_app_handle(app_handle: &tauri::AppHandle) {
     let _ = APP_HANDLE.set(app_handle.clone());
 }
 
+pub fn app_handle() -> Option<&'static tauri::AppHandle> {
+    APP_HANDLE.get()
+}
+
+#[cfg_attr(test, allow(dead_code))]
 pub fn shared_gpu_context() -> Result<GpuContext, String> {
     let app_handle = APP_HANDLE
         .get()
@@ -52,7 +57,35 @@ static DECODE_GPU: Mutex<Option<DecodeSlot>> = Mutex::new(None);
 static DECODE_DEVICE_LOST: AtomicBool = AtomicBool::new(false);
 
 pub fn decode_gpu_context() -> Result<DecodeGpu, String> {
+    // Unit tests run without the app (and must not link its window code): a standalone device.
+    #[cfg(test)]
+    return test_decode_gpu();
+    #[cfg(not(test))]
     Ok(decode_gpu_for(&shared_gpu_context()?))
+}
+
+/// A decode device for unit tests, which run without the app: the adapter the app would pick, without a window.
+#[cfg(test)]
+pub fn test_decode_gpu() -> Result<DecodeGpu, String> {
+    static GPU: OnceLock<Result<DecodeGpu, String>> = OnceLock::new();
+    GPU.get_or_init(|| {
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle_from_env();
+        if cfg!(target_os = "windows") && std::env::var("WGPU_BACKEND").is_err() {
+            desc.backends = wgpu::Backends::PRIMARY;
+        }
+        let instance = wgpu::Instance::new(desc);
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            ..Default::default()
+        }))
+        .map_err(|e| e.to_string())?;
+        let limits = adapter.limits();
+        static LOST: AtomicBool = AtomicBool::new(false);
+        let (device, queue) = open_device(&adapter, "Test Decode Device", wgpu::Features::empty(), &limits, &LOST)?;
+        eprintln!("test decode GPU: {:?}, storage binding limit {}", adapter.get_info().backend, limits.max_storage_buffer_binding_size);
+        Ok(DecodeGpu { device, queue, limits })
+    })
+    .clone()
 }
 
 fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {

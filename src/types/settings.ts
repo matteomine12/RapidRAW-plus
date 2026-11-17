@@ -126,6 +126,9 @@ export interface AppSettings {
   thumbnailAspectRatio?: ThumbnailAspectRatio;
   uiVisibility?: UiVisibility;
   rawHighlightCompression?: number;
+  hdrDisplayMode?: 'auto' | 'on' | 'off';
+  hdrPeakNits?: number | null;
+  hdrSdrWhiteNits?: number | null;
   processingBackend?: string;
   linuxGpuOptimization?: boolean;
   exportPresets?: ExportPreset[];

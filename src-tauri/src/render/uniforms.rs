@@ -132,9 +132,11 @@ pub struct GlobalAdjustments {
     pub vignette_center_y: f32,
     _pad_lut5: f32,
 
-    _pad_agx1: f32,
-    _pad_agx2: f32,
-    _pad_agx3: f32,
+    /// Linear peak of the HDR render (SDR white = 1). 1.0 = HDR off.
+    pub hdr_peak: f32,
+    /// Reserved (scene stops of the earlier HDR lift); the shader only uses `hdr_peak`.
+    pub hdr_ev0: f32,
+    pub hdr_ev1: f32,
     pub agx_pipe_to_rendering_matrix: GpuMat3,
     pub agx_rendering_to_pipe_matrix: GpuMat3,
     pub wb_rgb_to_lms_matrix: GpuMat3,
@@ -537,6 +539,34 @@ fn calculate_agx_matrices() -> (GpuMat3, GpuMat3) {
     )
 }
 
+/// `(peak, ev0, ev1)` for the HDR render of an edit: `hdrEnabled` and `hdrMaxEv` (stops of headroom above SDR white).
+fn hdr_uniforms(js_adjustments: &serde_json::Value, agx: bool) -> (f32, f32, f32) {
+    if js_adjustments["hdrEnabled"].as_bool() != Some(true) {
+        return (1.0, 0.0, 1.0);
+    }
+    let ev = js_adjustments["hdrMaxEv"]
+        .as_f64()
+        .filter(|v| v.is_finite())
+        .unwrap_or(crate::render::hdr::DEFAULT_EDIT_MAX_EV)
+        .clamp(0.0, crate::render::hdr::EDIT_MAX_EV_LIMIT);
+    let peak = (ev as f32).exp2();
+    let (ev0, ev1) = crate::render::hdr::lift_window(peak, agx);
+    (peak, ev0, ev1)
+}
+
+impl GlobalAdjustments {
+    /// Caps the HDR peak (linear, SDR white = 1), e.g. to what the display can show.
+    pub fn limit_hdr_peak(&mut self, max_peak: f32) {
+        if self.hdr_peak > 1.0 {
+            let peak = self.hdr_peak.min(max_peak.max(1.0));
+            let (ev0, ev1) = crate::render::hdr::lift_window(peak, self.tonemapper_mode == 1);
+            self.hdr_peak = peak;
+            self.hdr_ev0 = ev0;
+            self.hdr_ev1 = ev1;
+        }
+    }
+}
+
 fn get_global_adjustments_from_json(
     js_adjustments: &serde_json::Value,
     is_raw: bool,
@@ -645,6 +675,8 @@ fn get_global_adjustments_from_json(
     };
 
     let tone_mapper = js_adjustments["toneMapper"].as_str().unwrap_or("basic");
+    let uses_agx = tonemapper_override.unwrap_or_else(|| if tone_mapper == "agx" { 1 } else { 0 }) == 1;
+    let (hdr_peak, hdr_ev0, hdr_ev1) = hdr_uniforms(js_adjustments, uses_agx);
     let (pipe_to_rendering, rendering_to_pipe) = calculate_agx_matrices();
     let rgb_to_lms = white_balance::rgb_to_lms();
 
@@ -778,9 +810,9 @@ fn get_global_adjustments_from_json(
         vignette_center_y: get_val("vignette", "vignetteCenterY", 1.0, Some(0.5)),
         _pad_lut5: 0.0,
 
-        _pad_agx1: 0.0,
-        _pad_agx2: 0.0,
-        _pad_agx3: 0.0,
+        hdr_peak,
+        hdr_ev0,
+        hdr_ev1,
         agx_pipe_to_rendering_matrix: pipe_to_rendering,
         agx_rendering_to_pipe_matrix: rendering_to_pipe,
         wb_rgb_to_lms_matrix: mat3_to_gpu_mat3(rgb_to_lms),

@@ -82,13 +82,26 @@ fn process_and_get_dynamic_image_inner(
     context: &GpuContext,
     state: &tauri::State<AppState>,
     source: &RenderSource,
-    request: RenderRequest,
+    mut request: RenderRequest,
     caller_id: &str,
     output_precision: RenderOutputPrecision,
     display_output: Option<DisplayOutput>,
     analytics_config: Option<AnalyticsConfig>,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
+    // On an HDR display everything shown is rendered as linear light that can go above SDR white.
+    let hdr_display = display_output.is_some()
+        && output_precision == RenderOutputPrecision::EightBit
+        && crate::render::hdr::display_active();
+    let output_precision = if hdr_display {
+        request
+            .adjustments
+            .global
+            .limit_hdr_peak(crate::render::hdr::headroom());
+        RenderOutputPrecision::HdrLinear
+    } else {
+        output_precision
+    };
     let display_layer = display_output
         .filter(|output| output.target == PreviewTarget::Editor)
         .map(|output| output.layer);
@@ -259,7 +272,7 @@ fn process_and_get_dynamic_image_inner(
     let mut async_padded_bpr: u32 = 0;
 
     if analytics_config.is_some() && skip_readback {
-        let unpadded_bytes_per_row = 4 * out_w;
+        let unpadded_bytes_per_row = (if hdr_display { 8 } else { 4 }) * out_w;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
         let output_buffer_size = (padded_bytes_per_row * out_h) as u64;
@@ -268,7 +281,7 @@ fn process_and_get_dynamic_image_inner(
 
         final_encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.display_textures().working_texture,
+                texture: &processor.display_textures_for(hdr_display).working_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -302,17 +315,19 @@ fn process_and_get_dynamic_image_inner(
     let mut display = display_lock.as_mut().and_then(|d| d.as_mut());
 
     let display_target = match display_layer {
-        Some(DisplayLayer::Edited) => Some(&processor.display_textures().output_texture),
+        Some(DisplayLayer::Edited) => {
+            Some(&processor.display_textures_for(hdr_display).output_texture)
+        }
         Some(DisplayLayer::Original) => display
             .as_deref_mut()
-            .map(|display| display.original_texture(device, width, height)),
+            .map(|display| display.original_texture(device, width, height, hdr_display)),
         None => None,
     };
 
     if let Some(target) = display_target {
         final_encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &processor.display_textures().working_texture,
+                texture: &processor.display_textures_for(hdr_display).working_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d {
                     x: out_x,
@@ -353,6 +368,7 @@ fn process_and_get_dynamic_image_inner(
                 width: out_w,
                 height: out_h,
                 row_stride: async_padded_bpr as usize,
+                hdr: hdr_display,
             });
         } else {
             if let RenderedPixels::U8(pixels) = &processed_pixels {
@@ -363,6 +379,7 @@ fn process_and_get_dynamic_image_inner(
                         width: out_w,
                         height: out_h,
                         row_stride: out_w as usize * 4,
+                        hdr_bins: None,
                     },
                     compute_waveform: analytics.compute_waveform,
                     active_waveform_channel: analytics.active_waveform_channel,
@@ -380,13 +397,15 @@ fn process_and_get_dynamic_image_inner(
             DisplayLayer::Edited => display.show_texture(
                 device,
                 queue,
-                &processor.display_textures().output_texture_view,
+                &processor.display_textures_for(hdr_display).output_texture_view,
                 image_size,
                 texture_size,
                 display_output.map(|output| output.content),
+                hdr_display,
             ),
             DisplayLayer::Original => {
                 display.latest_transform.original_size = image_size;
+                display.set_source_linear(hdr_display);
                 display.rebind(device);
                 display.flush(device, queue);
             }
@@ -404,7 +423,7 @@ fn process_and_get_dynamic_image_inner(
         display.show_frame(
             device,
             queue,
-            &processor.display_textures().working_texture,
+            &processor.display_textures_for(hdr_display).working_texture,
             [width, height],
             context.limits.max_texture_dimension_2d,
         );
@@ -444,6 +463,19 @@ fn process_and_get_dynamic_image_inner(
             let img_buf = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(out_w, out_h, pixels)
                 .ok_or("Failed to create 8-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba8(img_buf))
+        }
+        RenderedPixels::U16(pixels) if output_precision == RenderOutputPrecision::HdrLinear => {
+            use rayon::prelude::*;
+            let floats: Vec<f32> = pixels
+                .par_iter()
+                .map(|bits| {
+                    let value = f16::from_bits(*bits).to_f32();
+                    if value.is_finite() { value.max(0.0) } else { 0.0 }
+                })
+                .collect();
+            let img_buf = ImageBuffer::<Rgba<f32>, Vec<f32>>::from_raw(out_w, out_h, floats)
+                .ok_or("Failed to create HDR image buffer from GPU data")?;
+            Ok(DynamicImage::ImageRgba32F(img_buf))
         }
         RenderedPixels::U16(mut pixels) => {
             use rayon::prelude::*;

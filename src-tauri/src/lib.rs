@@ -197,6 +197,11 @@ pub fn run() {
                     platform::viewer_window::handle_viewer_resized(window, *size);
                 }
             }
+            tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Focused(true)
+                if window.label() == "main" =>
+            {
+                render::hdr::reconcile_in_background(window.app_handle());
+            }
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 platform::viewer_window::handle_close_requested(window, api)
             }
@@ -645,6 +650,8 @@ pub fn run() {
             platform::main_window::frontend_ready,
             library::thumbnails::cancel_thumbnail_generation,
             render::commands::update_wgpu_transform,
+            render::hdr::get_hdr_display_info,
+            render::hdr::apply_hdr_display_settings,
             render::commands::release_original_preview,
             platform::viewer_window::open_viewer_window,
             platform::viewer_window::close_viewer_window,

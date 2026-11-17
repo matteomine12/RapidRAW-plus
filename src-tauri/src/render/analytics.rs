@@ -5,7 +5,13 @@ pub struct HistogramData {
     green: Vec<f32>,
     blue: Vec<f32>,
     luma: Vec<f32>,
+    /// Luminance above SDR white on a log scale, `HDR_BINS` bins over `HDR_RANGE_EV` stops; empty for SDR frames.
+    hdr: Vec<f32>,
 }
+
+/// Bins of the HDR part of the histogram and the stops above SDR white they span.
+pub const HDR_BINS: usize = 40;
+pub const HDR_RANGE_EV: f32 = 5.0;
 
 pub enum AnalyticsPixels {
     Owned(Vec<u8>),
@@ -28,6 +34,8 @@ pub struct AnalyticsFrame {
     pub width: u32,
     pub height: u32,
     pub row_stride: usize,
+    /// Pixel counts above SDR white per [`HDR_BINS`] bin, for frames rendered for an HDR display.
+    pub hdr_bins: Option<Vec<u32>>,
 }
 
 impl AnalyticsFrame {
@@ -85,11 +93,20 @@ pub fn calculate_histogram(frame: &AnalyticsFrame) -> Result<HistogramData, Stri
     normalize_histogram_range(&mut blue, 0.99);
     normalize_histogram_range(&mut luma, 0.99);
 
+    let hdr = match &frame.hdr_bins {
+        Some(bins) if bins.iter().any(|&c| c > 0) => {
+            let max = bins.iter().copied().max().unwrap_or(1).max(1) as f32;
+            bins.iter().map(|&c| (c as f32 / max).sqrt()).collect()
+        }
+        _ => Vec::new(),
+    };
+
     Ok(HistogramData {
         red,
         green,
         blue,
         luma,
+        hdr,
     })
 }
 
@@ -207,6 +224,13 @@ pub fn encode_analytics_packet(
             put_u32(&mut out, 0);
             put_u32(&mut out, 0);
         }
+    }
+
+    // HDR histogram bins (after the waveform so older readers of the packet are unaffected)
+    let hdr = histogram.map_or(&[][..], |h| &h.hdr[..]);
+    put_u32(&mut out, hdr.len());
+    for v in hdr {
+        out.extend_from_slice(&v.to_le_bytes());
     }
 
     out

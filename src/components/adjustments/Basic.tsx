@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
+import Switch from '../ui/Switch';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -180,6 +181,14 @@ function BasicAdjustments({
 
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
 
+  const handleHdrToggle = (enabled: boolean) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, hdrEnabled: enabled }));
+  };
+
+  const handleHdrHeadroomChange = (value: any) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, hdrMaxEv: parseFloat(value) }));
+  };
+
   return (
     <div>
       {hideTonemapper ? (
@@ -268,6 +277,31 @@ function BasicAdjustments({
         value={adjustments.brightness}
         onDragStateChange={onDragStateChange}
       />
+      {!isForMask && (
+        <>
+          <div className="mt-3 mb-1">
+            <Switch
+              checked={adjustments.hdrEnabled ?? false}
+              id="hdr-edit-toggle"
+              label={t('adjustments.basic.hdr')}
+              onChange={handleHdrToggle}
+            />
+          </div>
+          {adjustments.hdrEnabled && (
+            <Slider
+              resetKey="hdrMaxEv"
+              label={t('adjustments.basic.hdrHeadroom')}
+              max={5}
+              min={0}
+              defaultValue={3}
+              onChange={(e: any) => handleHdrHeadroomChange(e.target.value)}
+              step={0.1}
+              value={adjustments.hdrMaxEv ?? 3}
+              onDragStateChange={onDragStateChange}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }

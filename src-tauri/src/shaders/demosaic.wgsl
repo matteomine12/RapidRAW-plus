@@ -17,7 +17,8 @@ struct Params {
 @group(0) @binding(4) var<storage, read_write> b1: array<vec4<f32>>;
 @group(0) @binding(5) var<storage, read_write> b2: array<f32>;
 @group(0) @binding(6) var<storage, read_write> words: array<u32>;
-@group(0) @binding(7) var<storage, read_write> dst: array<f32>;
+// The developed camera-space image, written as a texture (no storage buffer binding limit).
+@group(0) @binding(7) var dst: texture_storage_2d<rgba32float, write>;
 
 const PHASE_BIAS: i32 = 600;
 
@@ -51,11 +52,9 @@ fn in_inner(id: vec3<u32>) -> bool {
 }
 
 fn emit(id: vec3<u32>, c: vec3<f32>) {
-    let o = ((id.y * P.strides.z) + P.strides.w + id.x) * 3u;
-    let value = max(c, vec3<f32>(0.0));
-    dst[o] = value.x;
-    dst[o + 1u] = value.y;
-    dst[o + 2u] = value.z;
+    let p = (id.y * P.strides.z) + P.strides.w + id.x;
+    let at = vec2<i32>(i32(p % P.strides.z), i32(p / P.strides.z));
+    textureStore(dst, at, vec4<f32>(max(c, vec3<f32>(0.0)), 1.0));
 }
 
 fn fold(v: i32, lo: i32, hi: i32, period: i32) -> i32 {

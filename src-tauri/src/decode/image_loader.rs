@@ -339,7 +339,7 @@ pub fn tiff_embedded_preview(bytes: &[u8]) -> Option<DynamicImage> {
     })
 }
 
-fn embedded_preview_fallback(bytes: &[u8]) -> Option<DynamicImage> {
+pub(crate) fn embedded_preview_fallback(bytes: &[u8]) -> Option<DynamicImage> {
     tiff_embedded_preview(bytes)
         .or_else(|| crate::decode::raw_processing::extract_embedded_preview(bytes))
 }

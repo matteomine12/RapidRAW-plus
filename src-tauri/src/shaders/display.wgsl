@@ -5,13 +5,14 @@ struct Transform {
     image_size: vec2<f32>,
     texture_size: vec2<f32>,
     pixelated: f32,
-    _pad: f32,
+    hdr_scale: f32,
     bg_primary: vec4<f32>,
     bg_secondary: vec4<f32>,
     original_size: vec2<f32>,
     split_origin: vec2<f32>,
     split_normal: vec2<f32>,
     split_offset: vec2<f32>,
+    extra: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> transform: Transform;
@@ -76,17 +77,51 @@ fn sample_layer(layer: texture_2d<f32>, uv: vec2<f32>, image_size: vec2<f32>, te
     }
 }
 
+fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
+    let lower = c / 12.92;
+    let higher = pow((c + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4));
+    return select(higher, lower, c <= vec3<f32>(0.04045));
+}
+
+fn linear_to_srgb(c: vec3<f32>) -> vec3<f32> {
+    let v = clamp(c, vec3<f32>(0.0), vec3<f32>(1.0));
+    let lower = v * 12.92;
+    let higher = 1.055 * pow(v, vec3<f32>(1.0 / 2.4)) - vec3<f32>(0.055);
+    return select(higher, lower, v <= vec3<f32>(0.0031308));
+}
+
+// Converts a sampled texel into the surface's encoding: sRGB for an SDR surface, scaled linear light
+// (scRGB, 1.0 = 80 nits) for an HDR one. `src_linear` marks textures that hold linear light.
+fn to_surface(c: vec4<f32>, src_linear: bool) -> vec4<f32> {
+    if (transform.hdr_scale > 0.0) {
+        var lin = c.rgb;
+        if (!src_linear) {
+            lin = srgb_to_linear(lin);
+        }
+        return vec4<f32>(lin * transform.hdr_scale, c.a);
+    }
+    if (src_linear) {
+        return vec4<f32>(linear_to_srgb(c.rgb), c.a);
+    }
+    return c;
+}
+
+fn background(c: vec4<f32>) -> vec4<f32> {
+    return to_surface(c, false);
+}
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let is_original = dot(in.pos.xy - transform.split_origin, transform.split_normal) < 0.0;
     let uv = select(in.uv, in.uv + transform.split_offset / transform.rect.zw, is_original);
 
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        return transform.bg_secondary;
+        return background(transform.bg_secondary);
     }
 
+    let src_linear = transform.extra.x > 0.5;
     if (is_original) {
-        return sample_layer(original_tex, uv, transform.original_size, transform.original_size);
+        return to_surface(sample_layer(original_tex, uv, transform.original_size, transform.original_size), src_linear);
     }
-    return sample_layer(tex, uv, transform.image_size, transform.texture_size);
+    return to_surface(sample_layer(tex, uv, transform.image_size, transform.texture_size), src_linear);
 }

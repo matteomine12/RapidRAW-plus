@@ -397,6 +397,8 @@ export interface Adjustments {
   sharpness: number;
   sharpnessThreshold: number;
   showClipping: boolean;
+  hdrEnabled: boolean;
+  hdrMaxEv: number;
   structure: number;
   temperature: number;
   tint: number;

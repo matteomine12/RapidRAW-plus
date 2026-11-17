@@ -92,6 +92,7 @@ struct Kernels {
     device: Arc<wgpu::Device>,
     bind_layout: wgpu::BindGroupLayout,
     pipelines: HashMap<&'static str, wgpu::ComputePipeline>,
+    plane_chunk: u64,
 }
 
 static KERNELS: Mutex<Option<Kernels>> = Mutex::new(None);
@@ -112,12 +113,25 @@ impl Kernels {
         let entries = [
             buffer(0, wgpu::BufferBindingType::Uniform, false),
             buffer(1, wgpu::BufferBindingType::Uniform, true),
-            buffer(2, storage(true), false),
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
             buffer(3, storage(false), false),
             buffer(4, storage(false), false),
             buffer(5, storage(false), false),
             buffer(6, storage(false), false),
+            buffer(7, storage(false), false),
+            buffer(8, storage(false), false),
+            buffer(9, storage(false), false),
         ];
+        let plane_chunk = plane_chunk_floats(&device.limits());
         let bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Develop BGL"),
             entries: &entries,
@@ -139,7 +153,10 @@ impl Kernels {
                     layout: Some(&layout),
                     module: &module,
                     entry_point: Some(entry),
-                    compilation_options: Default::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: &[("PL_CHUNK", plane_chunk as f64)],
+                        ..Default::default()
+                    },
                     cache: None,
                 });
                 (entry, pipeline)
@@ -149,8 +166,44 @@ impl Kernels {
             device: Arc::clone(device),
             bind_layout,
             pipelines,
+            plane_chunk,
         }
     }
+}
+
+/// Work planes are split over this many buffers (bindings 5, 7, 8, 9 of the develop shader).
+const PLANE_PARTS: u64 = 4;
+
+/// Floats per work-plane buffer: as large as one storage binding may be, in whole 256-byte steps.
+fn plane_chunk_floats(limits: &wgpu::Limits) -> u64 {
+    let bytes = limits
+        .max_storage_buffer_binding_size
+        .min(limits.max_buffer_size)
+        .min(u32::MAX as u64);
+    (bytes / 256 * 256 / 4).max(64)
+}
+
+/// The camera-space image as a float texture the develop pass reads.
+pub fn camera_texture(device: &wgpu::Device, width: u32, height: u32, writable: bool) -> wgpu::Texture {
+    device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Develop Camera"),
+        size: wgpu::Extent3d {
+            width: width.max(1),
+            height: height.max(1),
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba32Float,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING
+            | if writable {
+                wgpu::TextureUsages::STORAGE_BINDING
+            } else {
+                wgpu::TextureUsages::COPY_DST
+            },
+        view_formats: &[],
+    })
 }
 
 fn with_kernels<T>(device: &Arc<wgpu::Device>, f: impl FnOnce(&Kernels) -> T) -> T {
@@ -246,7 +299,28 @@ struct Layout {
     plan: Plan,
 }
 
-fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
+/// Floats of the statistics grid (`GLOBALS`, three cell planes and two pyramids) for cells of `cell` pixels.
+fn grid_floats_for(w: u32, h: u32, cell: u32) -> u64 {
+    let (gw, gh) = (w.div_ceil(cell), h.div_ceil(cell));
+    let mut floats = GLOBALS + 3 * (gw as u64 * gh as u64).max(1);
+    for _ in 0..2 {
+        let (mut lw, mut lh) = (gw, gh);
+        loop {
+            let n = lw as u64 * lh as u64;
+            floats += (n * 6).max(1) + (n * 3).max(1);
+            if lw == 1 && lh == 1 {
+                break;
+            }
+            lw = lw.div_ceil(2);
+            lh = lh.div_ceil(2);
+        }
+    }
+    floats
+}
+
+/// `max_grid_floats`: the statistics grid must fit one storage binding; cells only grow beyond the
+/// usual size when it would not (some Vulkan drivers allow 128 MB per binding).
+fn layout(w: u32, h: u32, finish: &Finish, max_grid_floats: u64) -> Layout {
     let (ow, oh) = if swaps_axes(finish.orientation) {
         (h, w)
     } else {
@@ -262,7 +336,10 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
     flags |= if denoise { DENOISE } else { 0 };
     flags |= if sharpen { SHARPEN } else { 0 };
 
-    let cell = (w.max(h) / 1024).clamp(1, 8);
+    let base_cell = (w.max(h) / 1024).clamp(1, 8);
+    let cell = (base_cell..=64)
+        .find(|&cell| grid_floats_for(w, h, cell) <= max_grid_floats)
+        .unwrap_or(64);
     let gw = w.div_ceil(cell);
     let gh = h.div_ceil(cell);
     let band_radius = SAMPLE_BAND_PX.div_ceil(cell);
@@ -296,6 +373,7 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
         }
         levels = l;
     }
+    debug_assert_eq!(grid_floats, grid_floats_for(w, h, cell));
 
     let hw = ow.div_ceil(2);
     let hh = oh.div_ceil(2);
@@ -516,7 +594,7 @@ pub(crate) fn upload(
 pub fn finish(
     context: &DecodeGpu,
     encoder: wgpu::CommandEncoder,
-    cam: &wgpu::Buffer,
+    cam: &wgpu::TextureView,
     width: u32,
     height: u32,
     finish: &Finish,
@@ -535,19 +613,51 @@ pub fn finish_rgb(
 ) -> Result<Rgb32FImage> {
     let device = &*context.device;
     scoped(device, || {
-        let bytes: &[u8] = bytemuck::cast_slice(data);
-        let cam = storage(
-            device,
-            "Develop Input",
-            bytes.len() as u64,
-            wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        );
-        upload(&context.queue, &cam, 0, bytes)?;
+        if data.len() < width as usize * height as usize {
+            return Err(anyhow!("Develop input is smaller than its dimensions"));
+        }
+        let cam = camera_texture(device, width, height, false);
+        // upload in bands of rows, widened to RGBA
+        let band_rows = ((16usize << 20) / (width as usize * 16).max(1)).max(1);
+        let mut row = 0usize;
+        while row < height as usize {
+            let rows = band_rows.min(height as usize - row);
+            let start = row * width as usize;
+            let rgba: Vec<[f32; 4]> = data[start..start + rows * width as usize]
+                .iter()
+                .map(|p| [p[0], p[1], p[2], 1.0])
+                .collect();
+            context.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &cam,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: 0,
+                        y: row as u32,
+                        z: 0,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                bytemuck::cast_slice(&rgba),
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(width * 16),
+                    rows_per_image: Some(rows as u32),
+                },
+                wgpu::Extent3d {
+                    width,
+                    height: rows as u32,
+                    depth_or_array_layers: 1,
+                },
+            );
+            row += rows;
+        }
+        let view = cam.create_view(&Default::default());
         let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Develop Encoder"),
         });
-        let developed = self::finish(context, encoder, &cam, width, height, finish);
-        release(cam);
+        let developed = self::finish(context, encoder, &view, width, height, finish);
+        release((view, cam));
         developed
     })
 }
@@ -578,7 +688,7 @@ fn run(
     kernels: &Kernels,
     context: &DecodeGpu,
     mut encoder: wgpu::CommandEncoder,
-    cam: &wgpu::Buffer,
+    cam: &wgpu::TextureView,
     width: u32,
     height: u32,
     finish: &Finish,
@@ -595,9 +705,10 @@ fn run(
         grid_floats,
         plane_floats,
         plan,
-    } = layout(width, height, finish);
+    } = layout(width, height, finish, binding_limit / 4);
     let [_, _, ow, oh] = params.dims;
-    if cam.size() > binding_limit || plane_floats * 4 > binding_limit {
+    let chunk = kernels.plane_chunk;
+    if plane_floats > chunk * PLANE_PARTS {
         return Err(anyhow!("Image too large for the GPU develop pass"));
     }
 
@@ -637,12 +748,12 @@ fn run(
         grid_floats * 4,
         wgpu::BufferUsages::STORAGE,
     );
-    let planes = storage(
-        device,
-        "Develop Planes",
-        plane_floats * 4,
-        wgpu::BufferUsages::STORAGE,
-    );
+    let planes: [wgpu::Buffer; PLANE_PARTS as usize] = std::array::from_fn(|part| {
+        let floats = plane_floats
+            .saturating_sub(part as u64 * chunk)
+            .min(chunk);
+        storage(device, "Develop Planes", floats * 4, wgpu::BufferUsages::STORAGE)
+    });
     let bands: [wgpu::Buffer; 2] = std::array::from_fn(|_| {
         storage(
             device,
@@ -674,11 +785,17 @@ fn run(
                         size: NonZeroU64::new(16),
                     }),
                 },
-                whole(2, cam),
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(cam),
+                },
                 whole(3, &stats),
                 whole(4, &grid),
-                whole(5, &planes),
+                whole(5, &planes[0]),
                 whole(6, &bands[slot]),
+                whole(7, &planes[1]),
+                whole(8, &planes[2]),
+                whole(9, &planes[3]),
             ],
         })
     });

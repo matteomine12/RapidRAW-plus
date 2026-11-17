@@ -16,11 +16,41 @@ struct Finish {
 
 @group(0) @binding(0) var<uniform> F: Finish;
 @group(0) @binding(1) var<uniform> T: vec4<u32>;
-@group(0) @binding(2) var<storage, read> cam: array<f32>;
+// The camera-space image: a texture, so its size is not bound by the storage buffer binding limit.
+@group(0) @binding(2) var cam: texture_2d<f32>;
 @group(0) @binding(3) var<storage, read_write> stats: array<atomic<u32>>;
 @group(0) @binding(4) var<storage, read_write> grid: array<f32>;
-@group(0) @binding(5) var<storage, read_write> pl: array<f32>;
+// The work planes, split over four buffers of `PL_CHUNK` floats each so that every binding stays
+// under the device's storage buffer binding limit (128 MB on some Vulkan drivers).
+@group(0) @binding(5) var<storage, read_write> pl0: array<f32>;
+@group(0) @binding(7) var<storage, read_write> pl1: array<f32>;
+@group(0) @binding(8) var<storage, read_write> pl2: array<f32>;
+@group(0) @binding(9) var<storage, read_write> pl3: array<f32>;
 @group(0) @binding(6) var<storage, read_write> dst: array<f32>;
+
+override PL_CHUNK: u32 = 33554432u;
+
+fn pl_get(i: u32) -> f32 {
+    let part = i / PL_CHUNK;
+    let o = i - part * PL_CHUNK;
+    switch part {
+        case 0u: { return pl0[o]; }
+        case 1u: { return pl1[o]; }
+        case 2u: { return pl2[o]; }
+        default: { return pl3[o]; }
+    }
+}
+
+fn pl_set(i: u32, v: f32) {
+    let part = i / PL_CHUNK;
+    let o = i - part * PL_CHUNK;
+    switch part {
+        case 0u: { pl0[o] = v; }
+        case 1u: { pl1[o] = v; }
+        case 2u: { pl2[o] = v; }
+        default: { pl3[o] = v; }
+    }
+}
 
 const HIGHLIGHTS: u32 = 1u;
 const DENOISE: u32 = 2u;
@@ -112,8 +142,7 @@ fn croot(v: f32) -> f32 {
 
 fn observed(x: i32, y: i32) -> vec3<f32> {
     let w = i32(F.dims.x);
-    let i = u32(clamp(y, 0, i32(F.dims.y) - 1) * w + clamp(x, 0, w - 1)) * 3u;
-    return vec3<f32>(cam[i], cam[i + 1u], cam[i + 2u]);
+    return textureLoad(cam, vec2<i32>(clamp(x, 0, w - 1), clamp(y, 0, i32(F.dims.y) - 1)), 0).rgb;
 }
 
 fn mask_bits(p: vec3<f32>) -> u32 {
@@ -350,7 +379,7 @@ fn hl_hist(@builtin(local_invocation_index) li: u32, @builtin(global_invocation_
         }
         workgroupBarrier();
         for (var i = gid.x; i < n; i += stride) {
-            let bin = (cam[i * 3u + c] * F.neutral[c] - LEVEL_LOW) * per_unit;
+            let bin = (textureLoad(cam, vec2<i32>(i32(i % F.dims.x), i32(i / F.dims.x)), 0)[c] * F.neutral[c] - LEVEL_LOW) * per_unit;
             if (bin >= 0.0 && bin < f32(LEVEL_BINS)) {
                 atomicAdd(&bins[u32(bin)], 1u);
             }
@@ -638,9 +667,9 @@ fn nr_half(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let s = stabilize(sum);
     let i = id.y * F.half.z + id.x;
-    pl[F.planes[0].x + i] = s.x;
-    pl[F.planes[0].y + i] = s.y;
-    pl[F.planes[0].z + i] = s.z;
+    pl_set(F.planes[0].x + i, s.x);
+    pl_set(F.planes[0].y + i, s.y);
+    pl_set(F.planes[0].z + i, s.z);
 }
 
 @compute @workgroup_size(8, 8)
@@ -656,15 +685,15 @@ fn nr_quarter(@builtin(global_invocation_id) id: vec3<u32>) {
         for (var j = 0u; j < 2u; j++) {
             let sx = min(2u * x + j, F.half.x - 1u);
             let i = half_at(i32(sx), i32(sy));
-            sum.x += pl[F.planes[0].x + i] * 0.25;
-            sum.y += pl[F.planes[0].y + i] * 0.25;
-            sum.z += pl[F.planes[0].z + i] * 0.25;
+            sum.x += pl_get(F.planes[0].x + i) * 0.25;
+            sum.y += pl_get(F.planes[0].y + i) * 0.25;
+            sum.z += pl_get(F.planes[0].z + i) * 0.25;
         }
     }
     let i = id.y * F.quarter.z + id.x;
-    pl[F.planes[2].x + i] = sum.x;
-    pl[F.planes[2].y + i] = sum.y;
-    pl[F.planes[2].z + i] = sum.z;
+    pl_set(F.planes[2].x + i, sum.x);
+    pl_set(F.planes[2].y + i, sum.y);
+    pl_set(F.planes[2].z + i, sum.z);
 }
 
 struct Scale {
@@ -709,14 +738,14 @@ fn nr_relwiden(@builtin(global_invocation_id) id: vec3<u32>) {
     var widen = 1.0;
     if (id.y > 0u && id.y + 1u < s.ph && id.x > 0u && id.x + 1u < s.pw) {
         let luma_tol = (1.5 + 2.0 * F.amounts.x) * s.noise_q;
-        let g = 0.5 * max(abs(pl[s.q + i + 1u] - pl[s.q + i - 1u]), abs(pl[s.q + i + s.pw] - pl[s.q + i - s.pw]));
+        let g = 0.5 * max(abs(pl_get(s.q + i + 1u) - pl_get(s.q + i - 1u)), abs(pl_get(s.q + i + s.pw) - pl_get(s.q + i - s.pw)));
         let t = g / luma_tol;
         rel = 1.0 / (1.0 + t * t);
         let f = 1.0 + 2.0 * t;
         widen = 1.0 / (f * f);
     }
-    pl[s.rel + i] = rel;
-    pl[s.widen + i] = widen;
+    pl_set(s.rel + i, rel);
+    pl_set(s.widen + i, widen);
 }
 
 @compute @workgroup_size(8, 8)
@@ -734,14 +763,14 @@ fn nr_filter(@builtin(global_invocation_id) id: vec3<u32>) {
     let eps = luma_tol * luma_tol;
     let pw = s.pw;
     let c = (id.y + 2u) * pw + id.x + 2u;
-    let qc = pl[s.q + c];
-    let wc = pl[s.widen + c];
+    let qc = pl_get(s.q + c);
+    let wc = pl_get(s.widen + c);
     let o = id.y * s.w + id.x;
     var ref_r = 0.0;
     var ref_b = 0.0;
     if (T.y == 1u) {
-        ref_r = pl[F.planes[1].y + o];
-        ref_b = pl[F.planes[1].z + o];
+        ref_r = pl_get(F.planes[1].y + o);
+        ref_b = pl_get(F.planes[1].z + o);
     } else {
         var ref_w = 0.0;
         for (var j = 1u; j <= 3u; j++) {
@@ -750,11 +779,11 @@ fn nr_filter(@builtin(global_invocation_id) id: vec3<u32>) {
                 let dx = f32(i) - 2.0;
                 let dy = f32(j) - 2.0;
                 let sp = exp(-(dx * dx + dy * dy) / (2.0 * sigma * sigma));
-                let d = pl[s.q + k] - qc;
+                let d = pl_get(s.q + k) - qc;
                 let t = max(1.0 - d * d * kq * wc, 0.0);
-                let wt = sp * pl[s.rel + k] * t * t;
-                ref_r += wt * pl[s.cr + k];
-                ref_b += wt * pl[s.cb + k];
+                let wt = sp * pl_get(s.rel + k) * t * t;
+                ref_r += wt * pl_get(s.cr + k);
+                ref_b += wt * pl_get(s.cb + k);
                 ref_w += wt;
             }
         }
@@ -775,13 +804,13 @@ fn nr_filter(@builtin(global_invocation_id) id: vec3<u32>) {
             let dx = f32(i) - 2.0;
             let dy = f32(j) - 2.0;
             let sp = exp(-(dx * dx + dy * dy) / (2.0 * sigma * sigma));
-            let d = pl[s.q + k] - qc;
-            let crs = pl[s.cr + k];
-            let cbs = pl[s.cb + k];
+            let d = pl_get(s.q + k) - qc;
+            let crs = pl_get(s.cr + k);
+            let cbs = pl_get(s.cb + k);
             let er = crs - ref_r;
             let eb = cbs - ref_b;
             let t = max(1.0 - (d * d * kq + (er * er + eb * eb) * kc) * wc, 0.0);
-            let wt = sp * pl[s.rel + k] * t * t;
+            let wt = sp * pl_get(s.rel + k) * t * t;
             let wd = wt * d;
             sw += wt;
             sd += wd;
@@ -805,8 +834,8 @@ fn nr_filter(@builtin(global_invocation_id) id: vec3<u32>) {
         fr = mr - slope_r * md;
         fb = mb - slope_b * md;
     }
-    pl[s.out_r + o] = fr;
-    pl[s.out_b + o] = fb;
+    pl_set(s.out_r + o, fr);
+    pl_set(s.out_b + o, fb);
 }
 
 fn taps(v: u32, n: u32) -> vec4<f32> {
@@ -844,9 +873,9 @@ fn upsample(x: u32, y: u32, qc: f32, coarse: Scale, cr: u32, cb: u32, eps: f32) 
         for (var side = 0u; side < 2u; side++) {
             let lx = u32(select(tx.z, tx.x, side == 0u));
             let wx = select(tx.w, tx.y, side == 0u);
-            let gq = pl[qo + lx];
-            let gr = pl[cr + ly * coarse.w + lx];
-            let gb = pl[cb + ly * coarse.w + lx];
+            let gq = pl_get(qo + lx);
+            let gr = pl_get(cr + ly * coarse.w + lx);
+            let gb = pl_get(cb + ly * coarse.w + lx);
             let gw = wy * wx;
             let d = gq - qc;
             let wd = gw * d;
@@ -883,12 +912,12 @@ fn nr_upsample(@builtin(global_invocation_id) id: vec3<u32>) {
     if (id.x >= F.half.x || id.y >= F.half.y) {
         return;
     }
-    let qc = pl[F.planes[0].x + half_at(i32(id.x), i32(id.y))];
+    let qc = pl_get(F.planes[0].x + half_at(i32(id.x), i32(id.y)));
     let quarter = scale_of(1u);
     let u = upsample(id.x, id.y, qc, quarter, quarter.out_r, quarter.out_b, upsample_eps());
     let o = id.y * F.half.x + id.x;
-    pl[F.planes[1].y + o] = u.r;
-    pl[F.planes[1].z + o] = u.b;
+    pl_set(F.planes[1].y + o, u.r);
+    pl_set(F.planes[1].z + o, u.b);
 }
 
 @compute @workgroup_size(8, 8)
@@ -903,25 +932,25 @@ fn nr_core(@builtin(global_invocation_id) id: vec3<u32>) {
     var hi = -3.4e38;
     for (var j = -1; j <= 1; j++) {
         for (var i = -1; i <= 1; i++) {
-            let v = pl[F.planes[0].x + half_at(i32(id.x) + i, i32(id.y) + j)];
+            let v = pl_get(F.planes[0].x + half_at(i32(id.x) + i, i32(id.y) + j));
             lo = min(lo, v);
             hi = max(hi, v);
         }
     }
     let o = id.y * F.half.x + id.x;
-    let rr = pl[F.planes[1].y + o];
-    let rb = pl[F.planes[1].z + o];
-    let er = pl[F.planes[1].w + o] - rr;
-    let eb = pl[F.planes[2].w + o] - rb;
+    let rr = pl_get(F.planes[1].y + o);
+    let rb = pl_get(F.planes[1].z + o);
+    let er = pl_get(F.planes[1].w + o) - rr;
+    let eb = pl_get(F.planes[2].w + o) - rb;
     let keep = clamp(sqrt(er * er + eb * eb) / (core + texture * (hi - lo)) - 1.0, 0.0, 1.0);
-    pl[F.planes[1].w + o] = rr + er * keep;
-    pl[F.planes[2].w + o] = rb + eb * keep;
+    pl_set(F.planes[1].w + o, rr + er * keep);
+    pl_set(F.planes[2].w + o, rb + eb * keep);
 }
 
 fn luma_at(x: i32, y: i32) -> f32 {
     let cx = clamp(x, 0, i32(F.dims.z) - 1);
     let cy = clamp(y, 0, i32(F.dims.w) - 1);
-    return pl[F.planes[4].x + u32(cy * i32(F.dims.z) + cx)];
+    return pl_get(F.planes[4].x + u32(cy * i32(F.dims.z) + cx));
 }
 
 @compute @workgroup_size(8, 8)
@@ -930,7 +959,7 @@ fn sh_luma(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let p = developed(vec2<i32>(id.xy));
-    pl[F.planes[4].x + id.y * F.dims.z + id.x] = sqrt(max(0.2126 * p.x + 0.7152 * p.y + 0.0722 * p.z, 0.0) + FLOOR);
+    pl_set(F.planes[4].x + id.y * F.dims.z + id.x, sqrt(max(0.2126 * p.x + 0.7152 * p.y + 0.0722 * p.z, 0.0) + FLOOR));
 }
 
 fn blur(x: i32, y: i32) -> f32 {
@@ -953,7 +982,7 @@ fn md_sample(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgro
                 let sc = scale_of(T.x / 2u);
                 let cols = (sc.pw - 4u + 6u) / 7u;
                 let i = (s / cols) * 8u * sc.pw + (s % cols) * 7u;
-                v = abs(pl[sc.q + i + 4u] - pl[sc.q + i]);
+                v = abs(pl_get(sc.q + i + 4u) - pl_get(sc.q + i));
             }
             case 1u, 3u: {
                 let sc = scale_of(T.x / 2u);
@@ -961,12 +990,12 @@ fn md_sample(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgro
                 let k = s / 2u;
                 let i = (k / cols) * 8u * sc.pw + (k % cols) * 7u;
                 let plane = select(sc.cb, sc.cr, s % 2u == 0u);
-                v = abs(pl[plane + i + 4u] - pl[plane + i]);
+                v = abs(pl_get(plane + i + 4u) - pl_get(plane + i));
             }
             case 4u: {
                 let i = s * 7u;
-                let er = pl[F.planes[1].w + i] - pl[F.planes[1].y + i];
-                let eb = pl[F.planes[2].w + i] - pl[F.planes[1].z + i];
+                let er = pl_get(F.planes[1].w + i) - pl_get(F.planes[1].y + i);
+                let eb = pl_get(F.planes[2].w + i) - pl_get(F.planes[1].z + i);
                 v = sqrt(er * er + eb * eb);
             }
             case 5u: {
@@ -986,7 +1015,7 @@ fn md_sample(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgro
                 v = abs(luma_at(x, y) - blur(x, y));
             }
         }
-        pl[F.planes[4].y + s] = v;
+        pl_set(F.planes[4].y + s, v);
     }
 }
 
@@ -1000,7 +1029,7 @@ fn md_hist(@builtin(local_invocation_index) li: u32, @builtin(global_invocation_
     let n = T.y;
     let prefix = atomicLoad(&stats[PREFIX]);
     for (var s = gid.x; s < n; s += nw.x * 256u) {
-        let bits = bitcast<u32>(pl[F.planes[4].y + s]);
+        let bits = bitcast<u32>(pl_get(F.planes[4].y + s));
         if (pass_index == 0u) {
             atomicAdd(&bins[bits >> 21u], 1u);
         } else if (pass_index == 1u) {

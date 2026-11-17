@@ -10,7 +10,7 @@ pub struct HighPrecisionPipeline {
 }
 
 type SpecializedPipelines =
-    Arc<std::sync::Mutex<HashMap<(bool, u32), Option<wgpu::ComputePipeline>>>>;
+    Arc<std::sync::Mutex<HashMap<(u8, u32), Option<wgpu::ComputePipeline>>>>;
 
 pub const ALL_SHADER_FEATURES: u32 = u32::MAX;
 
@@ -134,6 +134,7 @@ pub struct GpuPipelines {
     pub specialized_pipelines: SpecializedPipelines,
     pub high_precision_entries: Vec<wgpu::BindGroupLayoutEntry>,
     pub high_precision_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
+    pub hdr_pipeline: std::sync::OnceLock<wgpu::ComputePipeline>,
     pub hsl_probe_pipeline: std::sync::OnceLock<wgpu::ComputePipeline>,
     pub dummy_blur_view: wgpu::TextureView,
     pub dummy_lut_view: wgpu::TextureView,
@@ -559,11 +560,62 @@ impl GpuPipelines {
             specialized_pipelines: Arc::new(std::sync::Mutex::new(HashMap::new())),
             high_precision_entries: bind_group_layout_entries,
             high_precision_pipeline: std::sync::OnceLock::new(),
+            hdr_pipeline: std::sync::OnceLock::new(),
             hsl_probe_pipeline: std::sync::OnceLock::new(),
             dummy_blur_view,
             dummy_lut_view,
             dummy_lut_sampler,
             dummy_mask_view,
         }
+    }
+}
+
+#[cfg(test)]
+mod shader_tests {
+    use super::*;
+
+    fn validate(source: &str) -> naga::Module {
+        let module = naga::front::wgsl::parse_str(source).expect("WGSL parses");
+        naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::all(),
+        )
+        .validate(&module)
+        .expect("WGSL validates");
+        module
+    }
+
+    fn struct_span(module: &naga::Module, name: &str) -> u32 {
+        module
+            .types
+            .iter()
+            .find_map(|(_, ty)| match (&ty.name, &ty.inner) {
+                (Some(n), naga::TypeInner::Struct { span, .. }) if n == name => Some(*span),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("struct {name} not found"))
+    }
+
+    #[test]
+    fn main_shader_validates_and_matches_the_rust_layout() {
+        let module = validate(include_str!("../../shaders/shader.wgsl"));
+        assert_eq!(
+            struct_span(&module, "AllAdjustments") as usize,
+            std::mem::size_of::<AllAdjustments>()
+        );
+    }
+
+    #[test]
+    fn high_precision_shader_validates() {
+        validate(&high_precision_shader_source());
+    }
+
+    #[test]
+    fn display_shader_validates_and_matches_the_rust_layout() {
+        let module = validate(include_str!("../../shaders/display.wgsl"));
+        assert_eq!(
+            struct_span(&module, "Transform") as usize,
+            std::mem::size_of::<crate::render::gpu::display::DisplayTransform>()
+        );
     }
 }

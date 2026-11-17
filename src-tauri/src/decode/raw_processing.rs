@@ -699,3 +699,56 @@ pub fn get_fast_demosaic_scale_factor(
     }
     1.0
 }
+
+#[cfg(test)]
+mod gpu_decode_tests {
+    /// Develops the RAW files in `RAPIDRAW_TEST_RAWS` (default: the user's Pictures/test folder) on the GPU the app uses.
+    #[test]
+    fn develops_full_size_raws_on_this_gpu() {
+        let dir = std::env::var("RAPIDRAW_TEST_RAWS").unwrap_or_else(|_| {
+            format!("{}/Pictures/test", std::env::var("USERPROFILE").unwrap_or_default())
+        });
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            eprintln!("skipped: no {dir}");
+            return;
+        };
+        let raws: Vec<_> = entries
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("cr2") || e.eq_ignore_ascii_case("dng") || e.eq_ignore_ascii_case("nef") || e.eq_ignore_ascii_case("arw") || e.eq_ignore_ascii_case("raf")))
+            .collect();
+        for path in raws.iter().take(2) {
+            let bytes = std::fs::read(path).unwrap();
+            for (denoise, sharpen) in [(0.0, 0.0), (0.5, 0.35)] {
+                let start = std::time::Instant::now();
+                let image = super::develop_raw_image(&bytes, false, 2.5, String::new(), denoise, sharpen, None)
+                    .unwrap_or_else(|e| panic!("{}: {e:#}", path.display()));
+                eprintln!("{} (denoise {denoise}): {}x{} in {:?}", path.display(), image.width(), image.height(), start.elapsed());
+                assert!(image.width() > 1000 && image.height() > 1000);
+            }
+            // compare with the camera's own rendering (embedded JPEG): both GPU paths must show the same picture
+            let full = super::develop_raw_image(&bytes, false, 2.5, String::new(), 0.0, 0.0, None).unwrap().to_rgb32f();
+            let fast = super::develop_raw_image(&bytes, true, 2.5, String::new(), 0.0, 0.0, None).unwrap().to_rgb32f();
+            // full demosaic (texture written by the demosaic pass) against the fast 2x2/4x4 bin (texture
+            // uploaded from the CPU), compared on log luminance: same picture, nothing black or NaN
+            let luma = |img: &image::Rgb32FImage, x: u32, y: u32| {
+                let ix = ((x as u64 * img.width() as u64) / fast.width() as u64) as u32;
+                let iy = ((y as u64 * img.height() as u64) / fast.height() as u64) as u32;
+                let q = img.get_pixel(ix.min(img.width() - 1), iy.min(img.height() - 1)).0;
+                assert!(q.iter().all(|v| v.is_finite()), "NaN in output");
+                ((q[0] + q[1] + q[2]) / 3.0).max(1.0e-4).log2() as f64
+            };
+            let (mut n, mut sx, mut sy, mut sxx, mut syy, mut sxy) = (0f64, 0f64, 0f64, 0f64, 0f64, 0f64);
+            for y in (0..fast.height()).step_by(3) {
+                for x in (0..fast.width()).step_by(3) {
+                    let (a, b) = (luma(&fast, x, y), luma(&full, x, y));
+                    n += 1.0; sx += a; sy += b; sxx += a * a; syy += b * b; sxy += a * b;
+                }
+            }
+            let corr = (n * sxy - sx * sy) / ((n * sxx - sx * sx).sqrt() * (n * syy - sy * sy).sqrt());
+            eprintln!("{}: full vs fast log-luma correlation {:.4}, mean stops {:.2} / {:.2}", path.display(), corr, sy / n, sx / n);
+            assert!(sy / n > -10.0, "full develop is black");
+            assert!(corr > 0.9, "full and fast develop disagree");
+        }
+    }
+}

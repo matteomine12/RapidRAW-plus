@@ -15,6 +15,8 @@
       "reset": "Reset",
       "shadows": "Shadows",
       "toneMapper": "Tone Mapper",
+      "hdr": "HDR",
+      "hdrHeadroom": "HDR headroom (stops)",
       "whites": "Whites"
     },
     "color": {
@@ -1823,6 +1825,25 @@
     }
   },
   "settings": {
+    "hdrDisplay": {
+      "title": "HDR display",
+      "mode": "HDR output",
+      "modeAuto": "Automatic (follow the system)",
+      "modeOn": "Always on",
+      "modeOff": "Off",
+      "modeDesc": "Shows photos on an HDR display with the full brightness range. Automatic turns on when HDR is enabled for the monitor in the operating system. Use \"Always on\" if your system does not report it (for example on Linux desktops other than KDE and GNOME).",
+      "active": "HDR output is active: peak {{peak}} nits, SDR white {{white}} nits, {{ev}} stops of headroom.",
+      "inactive": "HDR output is not active, photos are shown in SDR.",
+      "unsupported": "This system or GPU cannot present HDR in the editor.",
+      "detected": "System reports: peak {{peak}} nits, SDR white {{white}} nits.",
+      "notDetected": "The system does not report HDR for this display.",
+      "peak": "Display peak brightness",
+      "peakDesc": "The brightest highlight your monitor can show. Sets how far highlights above SDR white can go.",
+      "sdrWhite": "SDR white level",
+      "sdrWhiteDesc": "The brightness regular (SDR) white is shown at. Match the SDR content brightness of your system for a consistent look.",
+      "useDetected": "Use the value reported by the system",
+      "nits": "Nits"
+    },
     "categories": {
       "general": "General",
       "processing": "Processing",

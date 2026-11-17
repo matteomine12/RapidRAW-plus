@@ -125,6 +125,9 @@ pub fn encode_image_to_bytes(
 
     match output_format.to_lowercase().as_str() {
         "jxl" => {
+            if matches!(image, DynamicImage::ImageRgba32F(_)) {
+                return encode_hdr_jxl(image, jpeg_quality);
+            }
             let (width, height) = image.dimensions();
             let has_alpha = image.color().has_alpha();
 
@@ -202,6 +205,17 @@ pub fn encode_image_to_bytes(
             }
         }
         "tif" | "tiff" => {
+            // an HDR edit is saved as 32-bit float, linear light with 1.0 at SDR white (no profile: sRGB
+            // would mislabel linear values)
+            if matches!(image, DynamicImage::ImageRgba32F(_)) {
+                return encode_tiff_with_metadata(
+                    image,
+                    TiffSamples::ThirtyTwoFloat,
+                    tiff_metadata,
+                    None,
+                    export_settings.dpi,
+                );
+            }
             let samples = match export_settings.tiff_bit_depth {
                 TiffBitDepth::Eight => TiffSamples::Eight,
                 TiffBitDepth::Sixteen => TiffSamples::Sixteen,
@@ -224,6 +238,43 @@ pub fn encode_image_to_bytes(
     Ok(image_bytes)
 }
 
+/// HDR JPEG XL: linear float RGB where 1.0 is the brightest pixel, with the intensity target set so that
+/// SDR white (value 1.0 of the HDR render) stays at 203 nits.
+fn encode_hdr_jxl(image: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
+    use jxl_encoder::ImageMetadata;
+    const SDR_WHITE_NITS: f32 = 203.0;
+
+    let (width, height) = image.dimensions();
+    let rgb = image.to_rgb32f();
+    let peak = rgb
+        .as_raw()
+        .iter()
+        .copied()
+        .filter(|v| v.is_finite())
+        .fold(1.0f32, f32::max)
+        .min(50.0);
+    let scale = 1.0 / peak;
+    let mut bytes = Vec::with_capacity(rgb.as_raw().len() * 4);
+    for value in rgb.as_raw() {
+        let value = if value.is_finite() { (value * scale).clamp(0.0, 1.0) } else { 0.0 };
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+
+    let metadata = ImageMetadata::new()
+        .with_intensity_target((SDR_WHITE_NITS * peak).clamp(255.0, 10_000.0));
+    let distance = if quality >= 100 {
+        0.3
+    } else {
+        quality_to_distance(calibrated_jxl_quality(quality as f32))
+    };
+    let config = LossyConfig::new(distance);
+    config
+        .encode_request(width, height, PixelLayout::RgbLinearF32)
+        .with_metadata(&metadata)
+        .encode(&bytes)
+        .map_err(|e| format!("Failed to encode HDR JXL: {}", e))
+}
+
 fn insert_png_phys_chunk(image_bytes: &mut Vec<u8>, dpi: u16) {
     let pixels_per_meter = (f64::from(dpi) / 0.0254).round() as u32;
     let mut data = Vec::with_capacity(9);
@@ -231,4 +282,21 @@ fn insert_png_phys_chunk(image_bytes: &mut Vec<u8>, dpi: u16) {
     data.extend_from_slice(&pixels_per_meter.to_be_bytes());
     data.push(1);
     export_metadata::insert_png_chunk(image_bytes, b"pHYs", &data);
+}
+
+#[cfg(test)]
+mod hdr_tests {
+    use super::*;
+
+    #[test]
+    fn hdr_jxl_encodes_values_above_sdr_white() {
+        let mut img = image::Rgba32FImage::new(16, 16);
+        for (i, px) in img.pixels_mut().enumerate() {
+            let v = 0.25 + (i % 16) as f32 * 0.4;
+            *px = image::Rgba([v, v * 0.9, v * 0.8, 1.0]);
+        }
+        let bytes = encode_hdr_jxl(&DynamicImage::ImageRgba32F(img), 90).expect("HDR JXL encodes");
+        assert!(bytes.len() > 20);
+        assert!(bytes.starts_with(&[0xFF, 0x0A]) || bytes.starts_with(&[0x00, 0x00, 0x00, 0x0C]));
+    }
 }

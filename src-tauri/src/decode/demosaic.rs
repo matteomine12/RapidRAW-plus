@@ -200,12 +200,22 @@ impl Kernels {
             buffer(0, wgpu::BufferBindingType::Uniform),
             buffer(1, wgpu::BufferBindingType::Storage { read_only: true }),
         ];
-        entries.extend((2..8).map(|binding| {
+        entries.extend((2..7).map(|binding| {
             buffer(
                 binding,
                 wgpu::BufferBindingType::Storage { read_only: false },
             )
         }));
+        entries.push(wgpu::BindGroupLayoutEntry {
+            binding: 7,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::StorageTexture {
+                access: wgpu::StorageTextureAccess::WriteOnly,
+                format: wgpu::TextureFormat::Rgba32Float,
+                view_dimension: wgpu::TextureViewDimension::D2,
+            },
+            count: None,
+        });
         let bind_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Demosaic BGL"),
             entries: &entries,
@@ -482,12 +492,8 @@ impl<'a> Mosaic<'a> {
                 )
             })
             .collect();
-        let cam = storage(
-            device,
-            "Demosaic Camera",
-            crop_w as u64 * crop_h as u64 * 12,
-            wgpu::BufferUsages::STORAGE,
-        );
+        let cam = crate::decode::develop::camera_texture(device, crop_w, crop_h, true);
+        let cam_view = cam.create_view(&Default::default());
 
         let first_row = self.domain.p.y;
         let raw_rows =
@@ -564,7 +570,10 @@ impl<'a> Mosaic<'a> {
                         .enumerate()
                         .map(|(i, b)| whole(2 + i as u32, b)),
                 );
-                entries.push(whole(7, &cam));
+                entries.push(wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: wgpu::BindingResource::TextureView(&cam_view),
+                });
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Demosaic BG"),
                     layout: &kernels.bind_layout,
@@ -593,8 +602,8 @@ impl<'a> Mosaic<'a> {
             label: Some("Develop Encoder"),
         });
         let developed =
-            crate::decode::develop::finish(context, encoder, &cam, crop_w, crop_h, finish);
-        release((cam, raw));
+            crate::decode::develop::finish(context, encoder, &cam_view, crop_w, crop_h, finish);
+        release((cam_view, cam, raw));
         developed
     }
 }
