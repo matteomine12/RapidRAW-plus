@@ -12,6 +12,7 @@ import Dropdown from '../ui/Dropdown';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 import { useProcessStore } from '../../store/useProcessStore';
+import ProgressBar from '../ui/ProgressBar';
 
 const EMPTY_THUMBNAILS: Record<string, string> = {};
 
@@ -242,12 +243,7 @@ export default function CullingModal({
       <Loader2 className="w-16 h-16 text-accent animate-spin" />
       <p className="mt-4 text-text-primary">{progress?.stage || t('modals.culling.starting')}</p>
       {progress && progress.total > 0 && (
-        <div className="w-full bg-surface rounded-full h-2.5 mt-2">
-          <div
-            className="bg-accent h-2.5 rounded-full"
-            style={{ width: `${((progress.current ?? 0) / progress.total) * 100}%` }}
-          />
-        </div>
+        <ProgressBar className="mt-2" value={((progress.current ?? 0) / progress.total) * 100} />
       )}
     </div>
   );

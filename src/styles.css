@@ -79,6 +79,22 @@
   box-shadow: inset 0 0 0 1px var(--app-border-color);
 }
 
+/* Loading spinners: eased, pulsing rotation instead of a flat linear spin */
+@keyframes expressive-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(200deg) scale(0.88);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+.animate-spin {
+  animation: expressive-spin 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 @theme {
   --color-bg-primary: var(--app-bg-primary);
   --color-bg-secondary: var(--app-bg-secondary);

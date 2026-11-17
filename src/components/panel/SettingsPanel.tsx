@@ -65,6 +65,7 @@ import EditInAppsSettings from './settings/EditInAppsSettings';
 import { applyUiScale, clampUiScale, getDevicePixelRatio, UI_SCALE_PRESETS } from '../../utils/displayScale';
 import type { ParseKeys } from 'i18next';
 import { SPRING } from '../../utils/motion';
+import ProgressBar from '../ui/ProgressBar';
 
 interface ConfirmModalState {
   confirmText: string;
@@ -471,12 +472,7 @@ const CloudDashboard = () => {
               })}
             </Text>
           </div>
-          <div className="w-full bg-bg-primary rounded-full h-2">
-            <div
-              className="bg-accent h-2 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, ((cloudUsage?.requests ?? 0) / (cloudUsage?.limit ?? 200)) * 100)}%` }}
-            />
-          </div>
+          <ProgressBar value={((cloudUsage?.requests ?? 0) / (cloudUsage?.limit ?? 200)) * 100} />
         </div>
       ) : (
         <Text variant={TextVariants.small}>

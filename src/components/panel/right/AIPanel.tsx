@@ -68,6 +68,7 @@ import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useCloudUsage } from '../../../hooks/useCloudUsage';
 import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
 import { SPRING } from '../../../utils/motion';
+import ProgressBar from '../../ui/ProgressBar';
 
 export const STANDALONE_MASK_TYPES: Mask[] = [Mask.Clone, Mask.Heal, Mask.Liquify, Mask.Retouch];
 
@@ -370,12 +371,7 @@ const ConnectionStatus = ({
               {t('settings.processing.ai.cloud.signedIn.usageStats', { requests: reqs, limit: limit })}
             </Text>
           </div>
-          <div className="w-full bg-bg-tertiary rounded-full h-1.5 border border-border-color">
-            <div
-              className="bg-accent h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
+          <ProgressBar size="sm" value={percent} />
         </div>
       );
     } else if (isSignedIn && !isPro) {

@@ -11,6 +11,7 @@ import { useUIStore } from '../../../store/useUIStore';
 import { formatBytes } from '../../../utils/formatBytes';
 import { DEFAULT_IMMICH_SETTINGS } from '../../../utils/immichApi';
 import { useImmichStore } from '../../../store/useImmichStore';
+import ProgressBar from '../../ui/ProgressBar';
 
 interface StorageUsage {
   thumbnails: number;
@@ -163,12 +164,7 @@ function LimitBar({
 
   return (
     <div className="flex items-center gap-3 mt-2.5 pl-5.5">
-      <div className="flex-1 h-1 rounded-full bg-bg-primary overflow-hidden">
-        <div
-          className={clsx('h-full rounded-full transition-[width] duration-500', color)}
-          style={{ width: `${fill}%` }}
-        />
-      </div>
+      <ProgressBar className="flex-1" size="sm" value={fill} fillClassName={color} />
       <label className="flex items-center gap-1.5 shrink-0">
         <Text as="span" variant={TextVariants.small}>
           {t('settings.data.limit')}
