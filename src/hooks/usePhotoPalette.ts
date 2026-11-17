@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useProcessStore } from '../store/useProcessStore';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { DEFAULT_THEME_ID, THEMES } from '../utils/themes';
 
 const SAMPLE = 24;
 const HUE_BINS = 12;
@@ -26,6 +28,30 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   else if (max === g) h = (b - r) / d + 2;
   else h = (r - g) / d + 4;
   return [(h * 60 + 360) % 360, s, l];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [f(0), f(8), f(4)];
+}
+
+function luminance([r, g, b]: [number, number, number]): number {
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/** Finds the HSL lightness whose relative luminance matches the target, so text contrast is guaranteed without a scrim. */
+function lightnessForLuminance(h: number, s: number, target: number): number {
+  let lo = 0.03;
+  let hi = 0.97;
+  for (let i = 0; i < 14; i++) {
+    const mid = (lo + hi) / 2;
+    if (luminance(hslToRgb(h, s, mid)) < target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
 }
 
 /** Picks three representative hues from an image, weighted by how colourful each pixel is. */
@@ -97,26 +123,40 @@ export function usePhotoPalette() {
   const firstSelected = useLibraryStore((s) => s.multiSelectedPaths[0] ?? null);
   const path = selectedPath ?? activePath ?? firstSelected;
   const thumbnail = useProcessStore((s) => (path ? s.thumbnails[path] : undefined));
-  const lastUrl = useRef<string | null>(null);
+  const theme = useSettingsStore((s) => s.theme);
+  const lastKey = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!thumbnail || thumbnail === lastUrl.current) return;
-    lastUrl.current = thumbnail;
+    const target = parseFloat(
+      THEMES.find((t) => t.id === (theme || DEFAULT_THEME_ID))?.cssVariables['--app-photo-luminance'] ?? '0.1',
+    );
+    const paint = (hues: number[], sats: number[]) => {
+      const root = document.documentElement.style;
+      hues.forEach((h, i) => {
+        const l = lightnessForLuminance(h, sats[i], target);
+        root.setProperty(
+          `--photo-c${i + 1}`,
+          `hsl(${h.toFixed(0)} ${(sats[i] * 100).toFixed(0)}% ${(l * 100).toFixed(1)}%)`,
+        );
+      });
+    };
+    if (!thumbnail) {
+      if (lastKey.current === null) paint([230, 310, 190], [0.7, 0.6, 0.65]);
+      return;
+    }
+    const key = `${theme}|${thumbnail}`;
+    if (key === lastKey.current) return;
+    lastKey.current = key;
     let cancelled = false;
     const img = new Image();
     img.onload = () => {
       if (cancelled) return;
       const palette = extractPalette(img);
-      if (!palette) return;
-      const root = document.documentElement.style;
-      palette.hues.forEach((h, i) => {
-        const l = 'calc(var(--app-photo-lightness, 0.3) * 100%)';
-        root.setProperty(`--photo-c${i + 1}`, `hsl(${h.toFixed(0)} ${(palette.sats[i] * 100).toFixed(0)}% ${l})`);
-      });
+      if (palette) paint(palette.hues, palette.sats);
     };
     img.src = thumbnail;
     return () => {
       cancelled = true;
     };
-  }, [thumbnail]);
+  }, [thumbnail, theme]);
 }
