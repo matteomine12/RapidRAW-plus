@@ -86,7 +86,7 @@ export function PanelTabButton({
       {...listeners}
       {...attributes}
       className={clsx(
-        'relative rounded-md transition-[color,background-color,opacity] duration-300 shrink-0',
+        'relative rounded-xl transition-[color,background-color,opacity] duration-300 shrink-0',
         isCompact ? 'p-1.5' : 'p-2',
         isDisabled
           ? 'text-text-secondary opacity-30 cursor-default'
@@ -103,7 +103,7 @@ export function PanelTabButton({
       {isActive && (
         <motion.div
           layoutId={indicatorId}
-          className="absolute inset-0 bg-surface rounded-md"
+          className="absolute inset-0 bg-card-active rounded-xl"
           transition={isInstantTransition ? { duration: 0 } : SPRING.standard}
         />
       )}

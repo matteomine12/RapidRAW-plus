@@ -203,7 +203,7 @@ const ThumbnailComponent = ({
       {...listeners}
       {...attributes}
       className={clsx(
-        'w-full h-full bg-surface rounded-md overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]',
+        'w-full h-full bg-surface rounded-lg overflow-hidden cursor-pointer group relative flex flex-col transition-all duration-150 transform-gpu [-webkit-mask-image:-webkit-radial-gradient(white,black)]',
         isDragging && 'opacity-50 ring-2 ring-accent z-50',
       )}
       data-bench-id="thumbnail"
@@ -552,7 +552,7 @@ const ThumbnailComponent = ({
       )}
 
       <div
-        className={clsx('absolute inset-0 rounded-md pointer-events-none z-30 transition-all duration-150', ringClass)}
+        className={clsx('absolute inset-0 rounded-lg pointer-events-none z-30 transition-all duration-150', ringClass)}
       />
     </div>
   );
