@@ -68,6 +68,19 @@ function Build-Windows([string]$RustTarget) {
     }
     if (-not (Test-Cmd 'node')) { throw 'Node.js non trovato (serve v22+). winget install OpenJS.NodeJS.LTS' }
 
+    # ring / aws-lc-sys need clang on Windows ARM64
+    if ($RustTarget -like 'aarch64*') {
+        $llvm = 'C:/Program Files/LLVM/bin'
+        if (-not (Test-Cmd 'clang') -and (Test-Path $llvm)) { $env:Path += ";$llvm" }
+        if (-not (Test-Cmd 'clang')) {
+            if ($InstallDeps -and (Test-Cmd 'winget')) {
+                Invoke-Checked winget @('install', '--id', 'LLVM.LLVM', '-e', '--accept-package-agreements', '--accept-source-agreements')
+                if (Test-Path $llvm) { $env:Path += ";$llvm" }
+            }
+            if (-not (Test-Cmd 'clang')) { throw 'clang non trovato (serve per la build ARM64). winget install LLVM.LLVM  (oppure -InstallDeps)' }
+        }
+    }
+
     # cargo's built-in libgit2 can fail to reach GitHub on some setups; use the system git instead
     $env:CARGO_NET_GIT_FETCH_WITH_CLI = 'true'
 
