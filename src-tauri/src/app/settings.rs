@@ -666,6 +666,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub linux_wgpu_renderer_migrated_v1: Option<bool>,
     #[serde(default)]
+    pub linux_wgpu_renderer_migrated_v2: Option<bool>,
+    #[serde(default)]
     pub ai_cache_limits_migrated_v1: Option<bool>,
     #[serde(default)]
     pub library_view_mode: Option<String>,
@@ -824,7 +826,7 @@ impl AppSettings {
             && wgpu_renderer_available()
             && self
                 .use_wgpu_renderer
-                .unwrap_or(cfg!(not(target_os = "linux")))
+                .unwrap_or(true)
     }
 }
 
@@ -898,6 +900,7 @@ impl Default for AppSettings {
             linux_gpu_optimization: Some(false),
             linux_gpu_optimization_migrated_v1: Some(true),
             linux_wgpu_renderer_migrated_v1: Some(true),
+            linux_wgpu_renderer_migrated_v2: Some(true),
             ai_cache_limits_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
@@ -914,9 +917,11 @@ impl Default for AppSettings {
             is_waveform_visible: Some(false),
             waveform_height: Some(220),
             active_waveform_channel: Some("luma".to_string()),
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            // The wgpu renderer is the only path that can present HDR (scRGB), so it is on by default
+            // everywhere except Android. On Linux it is still gated by `wgpu_renderer_supported()` (Wayland).
+            #[cfg(target_os = "android")]
             use_wgpu_renderer: Some(false),
-            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            #[cfg(not(target_os = "android"))]
             use_wgpu_renderer: Some(true),
             editor_neutral_grey_bg: Some(false),
             canvas_input_mode: Some("mouse".to_string()),
@@ -1055,6 +1060,17 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
     if !settings.linux_wgpu_renderer_migrated_v1.unwrap_or(false) {
         settings.use_wgpu_renderer = Some(false);
         settings.linux_wgpu_renderer_migrated_v1 = Some(true);
+        settings_modified = true;
+    }
+
+    // v2: HDR output needs the wgpu renderer, so switch it back on once where it is supported.
+    // The user can still turn it off in the settings afterwards.
+    #[cfg(target_os = "linux")]
+    if !settings.linux_wgpu_renderer_migrated_v2.unwrap_or(false) {
+        if wgpu_renderer_supported() {
+            settings.use_wgpu_renderer = Some(true);
+        }
+        settings.linux_wgpu_renderer_migrated_v2 = Some(true);
         settings_modified = true;
     }
 
