@@ -2705,10 +2705,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
       <div
         ref={viewportRef}
+        data-wgpu-hole={isWgpuActive ? '' : undefined}
         className={clsx(
           'flex-1 flex relative overflow-hidden isolate',
           isFullScreen ? 'rounded-none' : 'rounded-lg',
-          appSettings?.useWgpuRenderer !== false && !isFullScreen && 'ring-[9999px] ring-bg-secondary',
           !isWgpuActive && (appSettings?.editorNeutralGreyBg ? 'bg-[#808080]' : 'bg-bg-secondary'),
         )}
       >

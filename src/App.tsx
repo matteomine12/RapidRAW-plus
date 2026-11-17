@@ -52,6 +52,7 @@ import { JobKind, useProcessStore } from './store/useProcessStore';
 import { useShallow } from 'zustand/react/shallow';
 
 import { useThumbnails } from './hooks/useThumbnails';
+import AppBackdrop from './components/ui/AppBackdrop';
 import { usePhotoPalette } from './hooks/usePhotoPalette';
 import { ImageDimensions } from './hooks/useImageRenderSize';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -935,6 +936,7 @@ function App() {
         currentResRef={currentResRef}
       />
       <ImageLoaderManager cachedEditStateRef={cachedEditStateRef} />
+      <AppBackdrop holeActive={isWgpuActive} />
       <div
         className={clsx(
           'flex flex-col h-screen font-sans text-text-primary overflow-hidden select-none',
