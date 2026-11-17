@@ -1070,6 +1070,7 @@
       "hdrTransferPq": "PQ (HDR10)",
       "hdrTransferHlg": "HLG",
       "hdrHint": {
+        "instagram": "Ultra HDR JPEG per Instagram e Threads: il normale JPEG più una gain map che aggiunge le alte luci HDR. Accendi l'HDR nella modifica (pannello Base) per ottenere la versione HDR; senza, è un normale JPEG. Bordo, margini e filigrana non vengono applicati.",
         "jpeg": "Ultra HDR JPEG: il normale JPEG più una gain map. Appare in HDR su Instagram, Threads, Android e Chrome, e come un JPEG normale ovunque altrove.",
         "png": "PNG a 16 bit con segnale PQ o HLG in BT.2020, indicato da un chunk cICP.",
         "avif": "AVIF a 10 bit con segnale PQ o HLG in BT.2020.",

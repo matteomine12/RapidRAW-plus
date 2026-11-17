@@ -252,6 +252,7 @@ export default function ExportPanel({
 
   const hdrFormats: string[] = [
     FileFormats.Jpeg,
+    FileFormats.Instagram,
     FileFormats.Png,
     FileFormats.Avif,
     FileFormats.Jxl,
@@ -531,7 +532,7 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
-      hdrExport,
+      hdrExport: hdrExport || fileFormat === FileFormats.Instagram,
       hdrTransfer,
       keepMetadata,
       preserveTimestamps,
@@ -639,7 +640,7 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
-      hdrExport,
+      hdrExport: hdrExport || fileFormat === FileFormats.Instagram,
       hdrTransfer,
       keepMetadata,
       preserveTimestamps,
@@ -802,7 +803,7 @@ export default function ExportPanel({
                   </button>
                 ))}
               </div>
-              {[FileFormats.Jpeg, FileFormats.Webp, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
+              {[FileFormats.Jpeg, FileFormats.Instagram, FileFormats.Webp, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
                 <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
                   <Slider
                     defaultValue={90}
@@ -836,12 +837,14 @@ export default function ExportPanel({
               )}
               {hdrFormats.includes(fileFormat) && (
                 <div className={clsx('space-y-2', isExporting && 'opacity-50 pointer-events-none')}>
-                  <Switch
-                    checked={hdrExport}
-                    id="export-hdr-toggle"
-                    label={t('export.file.hdrExport')}
-                    onChange={setHdrExport}
-                  />
+                  {fileFormat !== FileFormats.Instagram && (
+                    <Switch
+                      checked={hdrExport}
+                      id="export-hdr-toggle"
+                      label={t('export.file.hdrExport')}
+                      onChange={setHdrExport}
+                    />
+                  )}
                   <Text variant={TextVariants.small}>{t(`export.file.hdrHint.${fileFormat}` as ParseKeys)}</Text>
                   {hdrExport && (fileFormat === FileFormats.Png || fileFormat === FileFormats.Avif) && (
                     <div>
@@ -1059,9 +1062,14 @@ export default function ExportPanel({
                   )}
                 </Section>
 
-                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff, FileFormats.Webp, FileFormats.Jxl].includes(
-                  fileFormat as FileFormats,
-                ) && (
+                {[
+                  FileFormats.Jpeg,
+                  FileFormats.Instagram,
+                  FileFormats.Png,
+                  FileFormats.Tiff,
+                  FileFormats.Webp,
+                  FileFormats.Jxl,
+                ].includes(fileFormat as FileFormats) && (
                   <Section title={t('export.sections.metadata')}>
                     <Switch
                       checked={keepMetadata}
@@ -1240,7 +1248,9 @@ export default function ExportPanel({
                             )}
                           </>
                         )}
-                        {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (
+                        {[FileFormats.Jpeg, FileFormats.Instagram, FileFormats.Png, FileFormats.Tiff].includes(
+                          fileFormat as FileFormats,
+                        ) && (
                           <div className="flex items-center gap-2">
                             <Text variant={TextVariants.label} className="flex-1">
                               {t('export.file.resolution')}

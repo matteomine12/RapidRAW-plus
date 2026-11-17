@@ -7,6 +7,7 @@ export enum FileFormats {
   Webp = 'webp',
   Jxl = 'jxl',
   Avif = 'avif',
+  Instagram = 'instagram',
   Cube = 'cube',
 }
 
@@ -17,6 +18,8 @@ export const FILE_FORMATS: Array<FileFormat> = [
   { id: FileFormats.Webp, name: 'WebP', extensions: ['webp'] },
   { id: FileFormats.Jxl, name: 'JPEG XL', extensions: ['jxl'] },
   { id: FileFormats.Avif, name: 'AVIF', extensions: ['avif'] },
+  // Ultra HDR JPEG (SDR base image + gain map): the HDR format Instagram and Threads accept
+  { id: FileFormats.Instagram, name: 'Instagram HDR', extensions: ['jpg'] },
   { id: FileFormats.Cube, name: 'CUBE LUT', extensions: ['cube'] },
 ];
 
