@@ -17,6 +17,9 @@
       "toneMapper": "Tone Mapper",
       "hdr": "HDR",
       "hdrHeadroom": "HDR headroom (stops)",
+      "hdrNits": "nits",
+      "hdrDisplayInfo": "Your display shows up to {{peak}} nits (+{{ev}} stops), marked on the slider.",
+      "hdrNoDisplay": "The display is not in HDR. The slider sets the headroom of exported HDR files.",
       "whites": "Whites"
     },
     "color": {
@@ -2508,6 +2511,9 @@
       "reset": "Reset"
     },
     "waveform": {
+      "hdrPeak": "Peak brightness of your display",
+      "hdrPeakShort": "peak",
+      "nits": "nits",
       "tooltips": {
         "hideClipping": "Hide Clipping Warnings",
         "histogram": "Histogram",

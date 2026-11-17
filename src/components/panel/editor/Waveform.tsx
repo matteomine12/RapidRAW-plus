@@ -3,6 +3,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { AlertOctagon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DisplayMode } from '../../../utils/adjustments';
+import { useHdrDisplayInfo } from '../../../hooks/useHdrDisplayInfo';
 import { useEditorStore } from '../../../store/useEditorStore';
 
 interface WaveformProps {
@@ -53,8 +54,13 @@ const modeButtons = [
   },
 ] as const;
 
+/** Stops above SDR white the HDR half of the histogram covers (the backend bins 0..5 stops). */
+const HDR_RANGE_EV = 5;
+
 const HistogramView = memo(() => {
   const histogram: any = useEditorStore((state) => state.histogram);
+  const display = useHdrDisplayInfo();
+
   if (!histogram || !histogram.red || !histogram.green || !histogram.blue) return null;
 
   const redMax = Math.max(...(histogram.red || [0]));
@@ -78,58 +84,108 @@ const HistogramView = memo(() => {
   ];
 
   const hdr: number[] = histogram.hdr || [];
-  const hdrWidth = hdr.length > 0 ? 64 : 0;
-  const hdrBarWidth = hdr.length > 0 ? hdrWidth / hdr.length : 0;
+  const hasHdr = hdr.length > 0;
+
+  // With HDR the plot is split in half: SDR (0..255) on the left, the range above SDR white on the right.
+  const width = hasHdr ? 510 : 255;
+  const hdrX = (ev: number) => 255 + (Math.min(Math.max(ev, 0), HDR_RANGE_EV) / HDR_RANGE_EV) * 255;
+  const hdrPoints = hdr.map((h, i) => `${hdrX(((i + 0.5) / hdr.length) * HDR_RANGE_EV)},${255 - h * 255}`);
+  // where the display's peak falls in the HDR half: what lies beyond it cannot be shown
+  const peakEv = display?.active ? Math.min(Math.max(display.headroomEv, 0), HDR_RANGE_EV) : HDR_RANGE_EV;
+  const ticks = [1, 2, 3, 4];
+  const left = (x: number) => `${(x / width) * 100}%`;
 
   return (
-    <svg
-      viewBox={`0 0 ${255 + hdrWidth} 255`}
-      className="w-full h-full overflow-visible pointer-events-none"
-      preserveAspectRatio="none"
-    >
-      {hdr.length > 0 && (
-        <g>
-          <line
-            x1={255}
-            y1={0}
-            x2={255}
-            y2={255}
-            stroke="#FFB84D"
-            strokeOpacity={0.6}
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
-          {hdr.map((h, i) => (
-            <rect
-              key={i}
-              x={255 + i * hdrBarWidth}
-              y={255 - h * 255}
-              width={hdrBarWidth}
-              height={h * 255}
-              fill="#FFB84D"
-              fillOpacity={0.55}
-            />
-          ))}
-        </g>
-      )}
-      {channels.map((ch) => {
-        if (!ch.data || ch.data.length === 0) return null;
-        return (
-          <g key={ch.key} style={{ mixBlendMode: 'lighten' }}>
-            <path d={getFill(ch.data)} fill={ch.color} fillOpacity={0.4} />
+    <div className="relative w-full h-full">
+      <svg
+        viewBox={`0 0 ${width} 255`}
+        className="w-full h-full overflow-visible pointer-events-none"
+        preserveAspectRatio="none"
+      >
+        {hasHdr && (
+          <g>
+            {/* what the display cannot show: beyond its peak */}
+            {peakEv < HDR_RANGE_EV && (
+              <rect x={hdrX(peakEv)} y={0} width={510 - hdrX(peakEv)} height={255} fill="#000" fillOpacity={0.3} />
+            )}
+            {ticks.map((k) => (
+              <line
+                key={k}
+                x1={hdrX(k)}
+                y1={0}
+                x2={hdrX(k)}
+                y2={255}
+                stroke="#FFB84D"
+                strokeOpacity={0.15}
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
             <path
-              d={getLine(ch.data)}
+              d={`M255,255 L${hdrPoints.join(' L')} L510,255 Z`}
+              fill="#FFB84D"
+              fillOpacity={0.35}
+            />
+            <path
+              d={`M${hdrPoints.join(' L')}`}
               fill="none"
-              stroke={ch.color}
+              stroke="#FFB84D"
               strokeWidth={1.5}
-              strokeOpacity={1.8}
               vectorEffect="non-scaling-stroke"
               strokeLinejoin="round"
             />
+            <line
+              x1={255}
+              y1={0}
+              x2={255}
+              y2={255}
+              stroke="#FFB84D"
+              strokeOpacity={0.8}
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+            />
+            {peakEv < HDR_RANGE_EV && (
+              <line
+                x1={hdrX(peakEv)}
+                y1={0}
+                x2={hdrX(peakEv)}
+                y2={255}
+                stroke="#FFB84D"
+                strokeOpacity={0.9}
+                strokeDasharray="4 3"
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
           </g>
-        );
-      })}
-    </svg>
+        )}
+        {channels.map((ch) => {
+          if (!ch.data || ch.data.length === 0) return null;
+          return (
+            <g key={ch.key} style={{ mixBlendMode: 'lighten' }}>
+              <path d={getFill(ch.data)} fill={ch.color} fillOpacity={0.4} />
+              <path
+                d={getLine(ch.data)}
+                fill="none"
+                stroke={ch.color}
+                strokeWidth={1.5}
+                strokeOpacity={1.8}
+                vectorEffect="non-scaling-stroke"
+                strokeLinejoin="round"
+              />
+            </g>
+          );
+        })}
+      </svg>
+      {hasHdr && (
+        <div className="absolute inset-0 pointer-events-none text-[9px] leading-none font-medium text-white/80 [text-shadow:0_0_3px_rgba(0,0,0,0.9)]">
+          <span className="absolute top-1 left-1 opacity-70">SDR</span>
+          <span className="absolute top-1 opacity-90" style={{ left: left(255), paddingLeft: 4, color: '#FFB84D' }}>
+            HDR
+          </span>
+        </div>
+      )}
+    </div>
   );
 });
 

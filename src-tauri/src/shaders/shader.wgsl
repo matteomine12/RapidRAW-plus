@@ -2344,35 +2344,30 @@ fn main(
     }
 
     if (HDR_OUTPUT == 1u) {
-        // HDR as in LightCraft (`ToneMap::hdr`): below 1.5 EV over mid grey the HDR render equals the
-        // SDR one; above it the highlights gain up to `peak - 1` more along a smoothstep in scene stops
-        // that ends one stop past the SDR white point moved up by the headroom. What clips in SDR thus
-        // moves into the display's headroom, monotone and never above the peak.
+        // HDR: the SDR render stays as it is wherever it does not clip. Where a channel clips (its scene
+        // value is past the point where the SDR tone curve reaches white) it keeps rising with the scene,
+        // channel by channel, so a bright orange sky stays orange instead of turning white. The result is
+        // then fitted under the display's peak by compressing its brightest channel and scaling the other
+        // two with it, which keeps the colour at every headroom. Brightness is untouched up to a knee
+        // at 70% of the headroom, so what the display can show is shown as it is.
         let sdr_linear = srgb_to_linear(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(1.0)));
         var hdr_linear = sdr_linear;
         let peak = max(adjustments.global.hdr_peak, 1.0);
         if (peak > 1.0) {
-            const GREY: f32 = 0.18;
-            const HDR_FROM_EV: f32 = 1.5;
             let uses_agx = has_feature(F_AGX) && adjustments.global.tonemapper_mode == 1u;
-            // scene stops over grey where the SDR render reaches white
-            let white_ev = select(log2(1.0 / GREY), AGX_MAX_EV, uses_agx);
-            let top = max(white_ev + log2(peak) + 1.0, HDR_FROM_EV + 0.5);
-            let scene_ev = log2(max(get_luma(max(composite_rgb_linear, vec3<f32>(0.0))), 1.0e-6) / GREY);
-            let rise = smoothstep(HDR_FROM_EV, top, scene_ev);
-            let lift = (peak - 1.0) * rise;
-            let sdr_luma = max(get_luma(sdr_linear), 1.0e-4);
-            let target_luma = min(sdr_luma + lift, peak);
-            // Gain on the SDR rendition keeps shadows and midtones identical to it...
-            let gained = sdr_linear * (target_luma / sdr_luma);
-            // ...but where the SDR render clips, its channels have already lost their hue (a bright orange
-            // sky goes white). The HDR highlights take their colour from the scene instead: the
-            // scene's chroma (colour at unit luminance) at the target luminance, so they keep their saturation.
-            let scene_rgb = max(composite_rgb_linear, vec3<f32>(0.0));
-            let scene_luma = max(get_luma(scene_rgb), 1.0e-6);
-            var kept = scene_rgb / scene_luma * target_luma;
-            kept *= min(1.0, peak / max(max(kept.r, max(kept.g, kept.b)), 1.0e-6));
-            hdr_linear = mix(gained, kept, clamp(rise * 3.0, 0.0, 1.0));
+            // scene value (linear) where the SDR tone curve is at its white: 1.0 for the basic curve, about
+            // three stops over mid grey for AgX, whose long shoulder is already compressing by then
+            let knee_scene = select(1.0, 1.5, uses_agx);
+            let rise = max(max(composite_rgb_linear, vec3<f32>(0.0)) / knee_scene, vec3<f32>(1.0));
+            let extended = sdr_linear * rise;
+            let top = max(extended.r, max(extended.g, extended.b));
+            let knee = 1.0 + 0.7 * (peak - 1.0);
+            var fitted = extended;
+            if (top > knee) {
+                let room = max(peak - knee, 1.0e-3);
+                fitted = extended * ((knee + room * (1.0 - exp(-(top - knee) / room))) / top);
+            }
+            hdr_linear = fitted;
             if (adjustments.global.show_clipping == 1u) {
                 // Visualize HDR: what rises above SDR white is painted by how many stops it is above it
                 // (yellow < 1, orange < 2, red < 3, magenta beyond); the rest is dimmed.

@@ -2,6 +2,9 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
+import Text from '../ui/Text';
+import { TextVariants } from '../../types/typography';
+import { formatNits, useHdrDisplayInfo } from '../../hooks/useHdrDisplayInfo';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
 import { useEffect, useRef, useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -181,8 +184,18 @@ function BasicAdjustments({
 
   const hideTonemapper = isForMask || appSettings?.tonemapperOverrideEnabled;
 
+  const hdrDisplay = useHdrDisplayInfo();
+  const sdrWhiteNits = hdrDisplay?.sdrWhiteNits ?? 203;
+  // the most headroom the display can show, in stops above SDR white (null when the display is not in HDR)
+  const displayEv = hdrDisplay?.active ? Math.min(Math.max(hdrDisplay.headroomEv, 0), 5) : null;
+
   const handleHdrToggle = (enabled: boolean) => {
-    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, hdrEnabled: enabled }));
+    setAdjustments((prev: Partial<Adjustments>) => ({
+      ...prev,
+      hdrEnabled: enabled,
+      // switching HDR on starts at what the display can show
+      ...(enabled && displayEv !== null ? { hdrMaxEv: Math.round(displayEv * 10) / 10 } : {}),
+    }));
   };
 
   const handleHdrHeadroomChange = (value: any) => {
@@ -288,17 +301,35 @@ function BasicAdjustments({
             />
           </div>
           {adjustments.hdrEnabled && (
-            <Slider
-              resetKey="hdrMaxEv"
-              label={t('adjustments.basic.hdrHeadroom')}
-              max={5}
-              min={0}
-              defaultValue={3}
-              onChange={(e: any) => handleHdrHeadroomChange(e.target.value)}
-              step={0.1}
-              value={adjustments.hdrMaxEv ?? 3}
-              onDragStateChange={onDragStateChange}
-            />
+            <>
+              <Slider
+                resetKey="hdrMaxEv"
+                label={
+                  <>
+                    {t('adjustments.basic.hdrHeadroom')}{' '}
+                    <span className="opacity-60">
+                      {formatNits(sdrWhiteNits * 2 ** (adjustments.hdrMaxEv ?? 3))} {t('adjustments.basic.hdrNits')}
+                    </span>
+                  </>
+                }
+                max={5}
+                min={0}
+                defaultValue={displayEv !== null ? Math.round(displayEv * 10) / 10 : 3}
+                markers={displayEv !== null ? [{ color: '#FFB84D', value: displayEv }] : undefined}
+                onChange={(e: any) => handleHdrHeadroomChange(e.target.value)}
+                step={0.1}
+                value={adjustments.hdrMaxEv ?? 3}
+                onDragStateChange={onDragStateChange}
+              />
+              <Text variant={TextVariants.small} className="mb-2">
+                {hdrDisplay?.active
+                  ? t('adjustments.basic.hdrDisplayInfo', {
+                      peak: formatNits(hdrDisplay.peakNits),
+                      ev: (displayEv ?? 0).toFixed(1),
+                    })
+                  : t('adjustments.basic.hdrNoDisplay')}
+              </Text>
+            </>
           )}
         </>
       )}
