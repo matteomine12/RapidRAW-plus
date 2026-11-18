@@ -15,9 +15,9 @@ This document is for whoever continues the work (human or agent). Start here, th
 | 1 | Look format, storage, per-photo LUT compiler, shader stage | done, tested |
 | 2 | Analytic extraction from a photo / colour / palette | done, tested on real photos (CPU simulation) |
 | 3 | UI: library, creation, colour × luminance pad | done, typechecked; needs hands-on testing in the app |
-| 4 | Trained model (neural engine) to compare with the analytic one | scripts ready in `training/smart_lut/`, **not run yet** (no PyTorch / dataset downloaded) |
+| 4 | Trained model (neural engine) to compare with the analytic one | v1 trained and evaluated (2026-11-18): better on synthetic looks, **worse on real references**; not integrated, the app keeps the analytic engine |
 
-Work lives on branch `smart-lut` (not merged into `main`).
+All of this is on `main`.
 
 ## User requirements (from the owner, in Italian originally)
 
@@ -130,14 +130,47 @@ exit (driver tearing down mid-compile), not a Smart LUT bug.
 - Only the basic/AgX display transforms are mirrored on CPU; changes to `display_transform` in the shader must
   be mirrored in `color::display_gray`.
 
+## Phase 4 — results of v1 (2026-11-18)
+
+Environment ready on the owner's machine: `training/smart_lut/.venv` (Python 3.12, torch 2.6 CUDA, RTX 3080)
+and `training/smart_lut/data/val2017` (COCO val, 5k photos). Both are git-ignored.
+
+`train.py --iters 60000 --name v1` (default LutNet: 16 basis LUTs, batch 24): 36 min, ~27 it/s, loss
+0.126 → 0.038. Checkpoint `training/smart_lut/runs/v1/model.pt` (not committed).
+
+**Held-out photos with random looks** (100 pairs, mean OKLab distance ×100 from the true result, lower is
+better; [scores](smart-lut/v1-heldout-scores.json), [grid](smart-lut/v1-heldout.jpg): reference | target |
+answer | analytic | neural):
+
+| engine | error |
+| --- | --- |
+| identity (no change) | 13.0 |
+| analytic | 6.3 |
+| neural v1 | 3.6 (wins on 91% of pairs) |
+
+The analytic engine's typical failure here is mistaking content for look: a reference that is mostly blue
+sky turns the target blue/purple; a reference full of vivid grass oversaturates greens.
+
+**Real references** ([grid](smart-lut/v1-real-references.jpg): reference | target | analytic | neural; refs
+are `public/splash-*.jpg`): the analytic engine reproduces the looks better. Neural v1 is too timid (glacier
+look barely applied), leaves a colour residue in black-and-white looks, and once turned red coats teal on a
+grey reference. Cause: it learned the random-look generator's vocabulary, which real looks do not match, and
+5k photos is little data.
+
 ## Phase 4 — next steps
 
-1. `cd training/smart_lut && ./setup.sh && ./download_data.sh` (the owner approved downloading these for the
-   training session).
-2. `.venv/bin/python train.py --data data --iters 60000 --name v1`, then `evaluate.py --name v1` (scored
-   analytic vs neural) and `evaluate.py --name v1 --pairs ref.jpg:photo.jpg` (real looks).
-3. If the neural engine wins: `export_onnx.py`, host the ONNX like the other models
-   (`src-tauri/src/ai/models.rs`), store a reference thumbnail with photo looks, and convert the model's
-   sRGB→sRGB LUT into the engine's domain (scene → `display_gray` → neural LUT → `display_inverse`). Add an
-   "analytic / neural" choice in the panel so the owner can compare. Colour/palette looks stay analytic (no
-   reference photo). The training README has the details.
+Options, roughly in order of expected value:
+
+1. **Real styles**: train on MIT-Adobe FiveK expert retouches (pairs = the same expert's edit of two photos)
+   mixed with the random looks; this is what closes the synthetic → real gap.
+2. **More photos**: `./download_data.sh train` (COCO train, 118k, ~18 GB) and a longer run (`--iters 200000`).
+3. **Model fixes**: a monochrome head (predict "is B&W" and desaturate exactly), hue-preserving constraint or
+   loss on hue flips, more basis LUTs.
+4. **Hybrid**: keep the analytic engine and use the network only where it is strong — telling content from
+   look (e.g. predict the reference's "true" cast/saturation to feed the analytic compiler).
+
+Re-evaluate every version with both `evaluate.py --name vN` and `--pairs` on real references; integrate in
+the app only if it wins on real references. Integration plan: `export_onnx.py`, host the ONNX like the other
+models (`src-tauri/src/ai/models.rs`), store a reference thumbnail with photo looks, and convert the model's
+sRGB→sRGB LUT into the engine's domain (scene → `display_gray` → neural LUT → `display_inverse`); add an
+"analytic / neural" choice in the panel. Colour/palette looks stay analytic (no reference photo).
