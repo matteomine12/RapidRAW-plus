@@ -33,7 +33,13 @@ def save(t: torch.Tensor, path: Path):
 
 
 def analytic(reference: Path, target: Path, out: Path) -> torch.Tensor:
-    env = dict(os.environ, SMART_REF=str(reference), SMART_TARGET=str(target), SMART_OUT=str(out))
+    # cargo runs in src-tauri, so the paths must be absolute
+    env = dict(
+        os.environ,
+        SMART_REF=str(reference.resolve()),
+        SMART_TARGET=str(target.resolve()),
+        SMART_OUT=str(out.resolve()),
+    )
     subprocess.run(
         ["cargo", "test", "--quiet", "--lib", "visual_check", "--", "--ignored"],
         cwd=SRC_TAURI, env=env, check=True, capture_output=True,
