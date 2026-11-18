@@ -30,8 +30,11 @@ pub struct NeuralLut {
 }
 
 impl NeuralLut {
-    pub fn new(lut: RawLut, target: &RgbImage) -> Self {
-        let mut ys: Vec<f32> = target
+    /// `whole` is the whole photo (any size): its median brightness must match the one the engine
+    /// normalises by, so it is not the centre-cropped thumbnail the model saw.
+    pub fn new(lut: RawLut, whole: &DynamicImage) -> Self {
+        let small = whole.resize(256, 256, FilterType::Triangle).to_rgb8();
+        let mut ys: Vec<f32> = small
             .pixels()
             .map(|p| luma(p.0.map(|v| srgb_to_linear(v as f32 / 255.0))))
             .collect();
@@ -91,8 +94,10 @@ pub fn run(
     app_handle: &tauri::AppHandle,
     key: &str,
     reference: &RgbImage,
-    target: &RgbImage,
+    target: &DynamicImage,
 ) -> Result<(), String> {
+    let whole = target;
+    let target = &thumbnail(whole);
     let mut slot = session_slot().lock().unwrap_or_else(|e| e.into_inner());
     if slot.is_none() {
         *slot = Some(crate::ai::models::build_smart_lut_session(app_handle).map_err(|e| e.to_string())?);
@@ -101,7 +106,7 @@ pub fn run(
     raw_cache()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .insert(key.to_string(), Arc::new(NeuralLut::new(lut, target)));
+        .insert(key.to_string(), Arc::new(NeuralLut::new(lut, whole)));
     Ok(())
 }
 

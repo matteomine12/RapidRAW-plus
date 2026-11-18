@@ -503,7 +503,7 @@ mod visual {
                 let reference = super::super::neural::thumbnail(&image::open(&reference).unwrap());
                 let target = super::super::neural::thumbnail(&dyn_img);
                 let raw = super::super::neural::infer(&mut session, &reference, &target).unwrap();
-                let neural = super::super::neural::NeuralLut::new(raw, &target);
+                let neural = super::super::neural::NeuralLut::new(raw, &dyn_img);
                 super::super::neural::to_engine(&neural, DisplayMode::BasicSrgb)
             }
             Err(_) => compile(&look, &stats, DisplayMode::BasicSrgb),

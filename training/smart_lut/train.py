@@ -20,6 +20,7 @@ from smartlut.data import Photos, split
 from smartlut.model import LutNet, apply_lut, lut_regularisers
 from smartlut.styles import apply_look, random_looks
 from smartlut.transfer import transfer_answer
+from smartlut.luts import apply_random_luts, load_luts, split_luts
 
 
 def loss_fn(out, gt):
@@ -43,9 +44,10 @@ def main():
     ap.add_argument("--resume", action="store_true")
     ap.add_argument(
         "--objective",
-        choices=["transfer", "style"],
-        default="transfer",
-        help="transfer: take the reference's colours and tones (v2); style: reproduce a hidden edit (v1)",
+        choices=["luts", "transfer", "style"],
+        default="luts",
+        help="luts: real film/creative LUTs on photo pairs (v3); transfer: take the reference's colour "
+        "distribution (v2, abandoned); style: random synthetic looks (v1)",
     )
     args = ap.parse_args()
 
@@ -59,6 +61,11 @@ def main():
         Photos(train_paths), batch_size=args.batch, shuffle=True, num_workers=args.workers,
         drop_last=True, pin_memory=True, persistent_workers=args.workers > 0,
     )
+    if args.objective == "luts":
+        names, luts = load_luts(Path(args.data) / "luts")
+        train_luts, held_names, _ = split_luts(names, luts)
+        train_luts = train_luts.to(device)
+        print(f"{len(train_luts)} training LUTs, {len(held_names)} held out")
     model = LutNet().to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.LambdaLR(
@@ -82,7 +89,9 @@ def main():
         photos = next(batches).to(device, non_blocking=True)
         with torch.no_grad():
             others = photos.roll(1, 0)
-            if args.objective == "style":
+            if args.objective == "luts":
+                reference, gt = apply_random_luts(photos, others, train_luts)
+            elif args.objective == "style":
                 looks = random_looks(photos.shape[0]).to(device)
                 reference = apply_look(others, looks)
                 gt = apply_look(photos, looks)

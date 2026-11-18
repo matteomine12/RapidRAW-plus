@@ -15,7 +15,7 @@ This document is for whoever continues the work (human or agent). Start here, th
 | 1 | Look format, storage, per-photo LUT compiler, shader stage | done, tested |
 | 2 | Analytic extraction from a photo / colour / palette | done, tested on real photos (CPU simulation) |
 | 3 | UI: library, creation, colour × luminance pad | done, typechecked; needs hands-on testing in the app |
-| 4 | Trained model (neural engine) to compare with the analytic one | v1 trained and evaluated (2026-11-18): better on synthetic looks, **worse on real references**; not integrated, the app keeps the analytic engine |
+| 4 | Trained model (neural engine) beside the analytic one | **v3 in the app** as "Neural (beta)" (2026-11-18): trained on real film/creative LUTs, clearly better than the analytic engine on unseen LUTs; v1 (synthetic looks) and v2 (colour transfer, stopped by the owner) abandoned |
 
 All of this is on `main`.
 
@@ -157,20 +157,37 @@ look barely applied), leaves a colour residue in black-and-white looks, and once
 grey reference. Cause: it learned the random-look generator's vocabulary, which real looks do not match, and
 5k photos is little data.
 
+## Phase 4 — v3: real LUTs (2026-11-18, the model in the app)
+
+The owner's idea: apply real LUTs to photos, so the model learns real looks instead of a synthetic generator.
+Source: the RawTherapee/G'MIC HaldCLUT film simulation collection (https://rawtherapee.com/shared/HaldCLUT.zip,
+CC BY-SA; 273 usable LUTs: Agfa, Fuji, Kodak, Ilford, Polaroid, Lomography, Rollei, a creative pack), in
+`training/smart_lut/data/luts/` (git-ignored; `smartlut/luts.py` converts them to 33³ and caches
+`luts33.pt`). Every 10th LUT (28) is held out. Pairs: the same LUT at 60–100% on photo A (reference) and photo
+B (answer); the model sees A-with-the-LUT and plain B. `train.py --objective luts --iters 40000 --name v3`:
+18 min.
+
+Held-out LUTs (84 pairs, `evaluate.py --name v3`, default `--looks luts`; [scores](smart-lut/v3-heldout-luts-scores.json), [grid](smart-lut/v3-heldout-luts.jpg), [real references](smart-lut/v3-real-references.jpg)):
+
+| engine | error |
+| --- | --- |
+| identity | 6.6 |
+| analytic | 12.1 |
+| neural v1 | 12.3 |
+| neural v3 | 4.2 (beats analytic on 88%) |
+
+On real references (`public/splash-*.jpg`) v3 gives true black and white with film tonality and a soft
+warm film look for the glacier; it takes palettes less literally than the analytic engine.
+
+In the app: `models/smart_lut_v3.onnx` (copied by hand into `<app data>/models/`; not downloaded yet), used
+when the panel switch is on "Neural". The conversion anchors the photo's brightness on the whole image's
+median (not the model's centre crop); the app path matches the Python model within ~1.
+
 ## Phase 4 — next steps
 
-Options, roughly in order of expected value:
+- Host the ONNX like the other models so the app downloads it (`ai/models.rs`).
+- More / other LUT sources (creative cinematic packs, colour moods) and COCO train for more photos; mix in
+  colour-transfer pairs (`smartlut/transfer.py`) if users want palettes taken more literally.
+- Regions: the model has none (one LUT for the whole photo); a variant could condition on the skin/sky masks.
+- If the owner prefers it, make neural the default for photo looks and keep analytic for colour/palette looks.
 
-1. **Real styles**: train on MIT-Adobe FiveK expert retouches (pairs = the same expert's edit of two photos)
-   mixed with the random looks; this is what closes the synthetic → real gap.
-2. **More photos**: `./download_data.sh train` (COCO train, 118k, ~18 GB) and a longer run (`--iters 200000`).
-3. **Model fixes**: a monochrome head (predict "is B&W" and desaturate exactly), hue-preserving constraint or
-   loss on hue flips, more basis LUTs.
-4. **Hybrid**: keep the analytic engine and use the network only where it is strong — telling content from
-   look (e.g. predict the reference's "true" cast/saturation to feed the analytic compiler).
-
-Re-evaluate every version with both `evaluate.py --name vN` and `--pairs` on real references; integrate in
-the app only if it wins on real references. Integration plan: `export_onnx.py`, host the ONNX like the other
-models (`src-tauri/src/ai/models.rs`), store a reference thumbnail with photo looks, and convert the model's
-sRGB→sRGB LUT into the engine's domain (scene → `display_gray` → neural LUT → `display_inverse`); add an
-"analytic / neural" choice in the panel. Colour/palette looks stay analytic (no reference photo).

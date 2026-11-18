@@ -192,9 +192,8 @@ pub async fn prepare_smart_lut_neural(
         .map_err(|_| "This look has no saved reference photo: create it again from the photo".to_string())?
         .to_rgb8();
     let warped = get_cached_full_warped_image(&state, &js_adjustments)?;
-    let target = neural::thumbnail(&warped);
     let key = neural::key(&look_id, &analysis_id);
-    tauri::async_runtime::spawn_blocking(move || neural::run(&app_handle, &key, &reference, &target))
+    tauri::async_runtime::spawn_blocking(move || neural::run(&app_handle, &key, &reference, &warped))
         .await
         .map_err(|e| e.to_string())?
 }

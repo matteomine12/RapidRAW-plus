@@ -22,6 +22,7 @@ from smartlut.color import linear_to_oklab, srgb_to_linear
 from smartlut.data import load, split
 from smartlut.model import LutNet, apply_lut
 from smartlut.styles import apply_look, random_looks
+from smartlut.luts import load_luts, split_luts
 
 SRC_TAURI = Path(__file__).resolve().parents[2] / "src-tauri"
 EVAL_SIZE = 512
@@ -75,6 +76,10 @@ def main():
     ap.add_argument("--data", default="data")
     ap.add_argument("--count", type=int, default=100)
     ap.add_argument("--pairs", nargs="*", help="reference:target image pairs (real looks, no score)")
+    ap.add_argument(
+        "--looks", choices=["luts", "random"], default="luts",
+        help="held-out film/creative LUTs the model never saw (default), or random synthetic looks",
+    )
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -100,14 +105,21 @@ def main():
 
     _, holdout = split(args.data)
     gen = torch.Generator().manual_seed(7)
+    if args.looks == "luts":
+        _, held_names, held_luts = split_luts(*load_luts(Path(args.data) / "luts"))
     scores = {"identity": [], "analytic": [], "neural": []}
     rows = []
     for i in tqdm(range(args.count)):
         a_path, b_path = holdout[(2 * i) % len(holdout)], holdout[(2 * i + 1) % len(holdout)]
         a, b = load(a_path, EVAL_SIZE), load(b_path, EVAL_SIZE)
-        look = random_looks(1, gen)
-        reference = apply_look(a[None], look)[0]
-        answer = apply_look(b[None], look)[0]
+        if args.looks == "luts":
+            lut = held_luts[i % len(held_luts)][None]
+            reference = apply_lut(a[None], lut)[0]
+            answer = apply_lut(b[None], lut)[0]
+        else:
+            look = random_looks(1, gen)
+            reference = apply_look(a[None], look)[0]
+            answer = apply_look(b[None], look)[0]
         ref_png, tgt_png = out_dir / f"{i:03d}_reference.png", out_dir / f"{i:03d}_target.png"
         save(reference, ref_png)
         save(b, tgt_png)
