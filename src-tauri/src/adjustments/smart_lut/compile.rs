@@ -494,7 +494,20 @@ mod visual {
         let img = image::open(&target).unwrap().to_rgb32f();
         let dyn_img = image::DynamicImage::ImageRgb32F(img.clone());
         let stats = analyze(&dyn_img, Encoding::Srgb, &Regions::default(), false);
-        let lut = compile(&look, &stats, DisplayMode::BasicSrgb);
+        let lut = match std::env::var("SMART_MODEL") {
+            // the neural engine, the way the app runs it
+            Ok(model) => {
+                let lib = concat!(env!("CARGO_MANIFEST_DIR"), "/resources/libonnxruntime.so");
+                let _ = ort::init_from(lib).commit();
+                let mut session = ort::session::Session::builder().unwrap().commit_from_file(model).unwrap();
+                let reference = super::super::neural::thumbnail(&image::open(&reference).unwrap());
+                let target = super::super::neural::thumbnail(&dyn_img);
+                let raw = super::super::neural::infer(&mut session, &reference, &target).unwrap();
+                let neural = super::super::neural::NeuralLut::new(raw, &target);
+                super::super::neural::to_engine(&neural, DisplayMode::BasicSrgb)
+            }
+            Err(_) => compile(&look, &stats, DisplayMode::BasicSrgb),
+        };
         let mut ys: Vec<f32> = img
             .pixels()
             .map(|p| luma([srgb_to_linear(p[0]), srgb_to_linear(p[1]), srgb_to_linear(p[2])]))

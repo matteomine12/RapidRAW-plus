@@ -11,7 +11,9 @@ use ort::session::Session;
 use ort::value::Tensor;
 use rayon::prelude::*;
 
-use super::color::{DisplayMode, display_inverse, linear_to_srgb, vlog_decode, vlog_encode};
+use super::color::{
+    DisplayMode, display_gray, display_inverse, linear_to_srgb, luma, srgb_to_linear, vlog_decode, vlog_encode,
+};
 use super::compile::{LUT_SIZE, LUT_SLOTS, SmartLutData};
 
 pub const THUMB: u32 = 256;
@@ -20,8 +22,29 @@ const NEURAL_SIZE: usize = 33;
 /// The model's raw output, (33, 33, 33, 3) indexed [b][g][r][c], sRGB in → sRGB out.
 pub type RawLut = Vec<f32>;
 
-fn raw_cache() -> &'static Mutex<HashMap<String, Arc<RawLut>>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, Arc<RawLut>>>> = OnceLock::new();
+/// A model LUT and how bright the photo it was made for looks (median display luma of its thumbnail):
+/// the LUT works on the photo as displayed, while the engine works on it normalised to a standard key.
+pub struct NeuralLut {
+    pub lut: RawLut,
+    pub target_median: f32,
+}
+
+impl NeuralLut {
+    pub fn new(lut: RawLut, target: &RgbImage) -> Self {
+        let mut ys: Vec<f32> = target
+            .pixels()
+            .map(|p| luma(p.0.map(|v| srgb_to_linear(v as f32 / 255.0))))
+            .collect();
+        ys.sort_by(f32::total_cmp);
+        NeuralLut {
+            lut,
+            target_median: linear_to_srgb(ys[ys.len() / 2]).clamp(0.02, 0.98),
+        }
+    }
+}
+
+fn raw_cache() -> &'static Mutex<HashMap<String, Arc<NeuralLut>>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, Arc<NeuralLut>>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -35,7 +58,7 @@ pub fn key(look_id: &str, analysis_id: &str) -> String {
     format!("{}:{}", look_id, analysis_id)
 }
 
-pub fn cached(key: &str) -> Option<Arc<RawLut>> {
+pub fn cached(key: &str) -> Option<Arc<NeuralLut>> {
     raw_cache()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
@@ -74,7 +97,16 @@ pub fn run(
     if slot.is_none() {
         *slot = Some(crate::ai::models::build_smart_lut_session(app_handle).map_err(|e| e.to_string())?);
     }
-    let session = slot.as_mut().unwrap();
+    let lut = infer(slot.as_mut().unwrap(), reference, target)?;
+    raw_cache()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(key.to_string(), Arc::new(NeuralLut::new(lut, target)));
+    Ok(())
+}
+
+/// One run of the model: the raw sRGB LUT.
+pub fn infer(session: &mut Session, reference: &RgbImage, target: &RgbImage) -> Result<RawLut, String> {
     let outputs = session
         .run(ort::inputs![
             "reference" => Tensor::from_array(tensor(reference)).map_err(|e| e.to_string())?,
@@ -90,11 +122,7 @@ pub fn run(
     if lut.len() != NEURAL_SIZE * NEURAL_SIZE * NEURAL_SIZE * 3 {
         return Err(format!("Unexpected Smart LUT model output ({} values)", lut.len()));
     }
-    raw_cache()
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(key.to_string(), Arc::new(lut));
-    Ok(())
+    Ok(lut)
 }
 
 fn sample(raw: &RawLut, rgb: [f32; 3]) -> [f32; 3] {
@@ -116,17 +144,12 @@ fn sample(raw: &RawLut, rgb: [f32; 3]) -> [f32; 3] {
     })
 }
 
-/// The same neutral rendering the analytic engine starts from (scene light → display, per channel).
-fn standard_display(x: f32) -> f32 {
-    let x = (x * 0.75).max(0.0);
-    let aces = (x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14);
-    linear_to_srgb(aces.clamp(0.0, 1.0))
-}
-
-/// The model's sRGB LUT in the engine's domain: normalised scene light → standard display → model →
-/// back to the scene light the shader's display transform turns into that picture. All four slots (whole
-/// image and regions) get the same table: the model has no regions.
-pub fn to_engine(raw: &RawLut, mode: DisplayMode) -> SmartLutData {
+/// The model's sRGB LUT in the engine's domain. A normalised scene value `n` is shown the way the default
+/// render shows the photo (display transform at the exposure that puts the median where the thumbnail has
+/// it), passed through the model's LUT, and brought back to scene light. An identity LUT therefore gives the
+/// default render back. All four slots (whole image and regions) get the same table: the model has no regions.
+pub fn to_engine(neural: &NeuralLut, mode: DisplayMode) -> SmartLutData {
+    let scale = display_inverse(mode, neural.target_median) / 0.18;
     let size = LUT_SIZE;
     let axis: Vec<f32> = (0..size)
         .map(|i| vlog_decode(i as f32 / (size - 1) as f32))
@@ -136,8 +159,8 @@ pub fn to_engine(raw: &RawLut, mode: DisplayMode) -> SmartLutData {
     slot.par_chunks_mut(size * 3).enumerate().for_each(|(row, chunk)| {
         let (b, g) = (row / size, row % size);
         for r in 0..size {
-            let display = [axis[r], axis[g], axis[b]].map(standard_display);
-            let out = sample(raw, display);
+            let display = [axis[r], axis[g], axis[b]].map(|n| display_gray(mode, n * scale));
+            let out = sample(&neural.lut, display);
             for c in 0..3 {
                 chunk[r * 3 + c] = vlog_encode(display_inverse(mode, out[c]));
             }
@@ -168,11 +191,15 @@ mod tests {
                 }
             }
         }
-        let lut = to_engine(&raw, DisplayMode::BasicSrgb);
-        // a mid grey stays a grey
-        let mid = LUT_SIZE / 2;
-        let i = ((mid * LUT_SIZE + mid) * LUT_SIZE + mid) * 3;
-        let rgb = [lut.data[i], lut.data[i + 1], lut.data[i + 2]].map(vlog_decode);
-        assert!((rgb[0] - rgb[1]).abs() < 1.0e-3 && (rgb[2] - rgb[1]).abs() < 1.0e-3, "{rgb:?}");
+        let neural = NeuralLut { lut: raw, target_median: 0.46 };
+        let lut = to_engine(&neural, DisplayMode::BasicSrgb);
+        // an identity model returns the default render: n scaled so the median shows at 0.46
+        let scale = display_inverse(DisplayMode::BasicSrgb, 0.46) / 0.18;
+        for (i, &x) in [6usize, 12, 16].iter().enumerate() {
+            let at = ((x * LUT_SIZE + x) * LUT_SIZE + x) * 3;
+            let n = vlog_decode(x as f32 / (LUT_SIZE - 1) as f32);
+            let o = vlog_decode(lut.data[at]);
+            assert!((o - n * scale).abs() < 0.02 * (n * scale) + 1.0e-3, "{i}: {o} vs {}", n * scale);
+        }
     }
 }
