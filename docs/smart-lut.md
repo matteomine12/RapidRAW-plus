@@ -183,11 +183,28 @@ In the app: `models/smart_lut_v3.onnx` (copied by hand into `<app data>/models/`
 when the panel switch is on "Neural". The conversion anchors the photo's brightness on the whole image's
 median (not the model's centre crop); the app path matches the Python model within ~1.
 
+## Phase 4 — v4: strong looks (2026-11-18, the model in the app)
+
+Tested on the owner's strong references (an orange studio car, a magenta/blue gel portrait, a dramatic B&W
+landscape, the lime "brat" cover), v3 did nothing with colour references: film LUTs are subtle, so it learned
+subtle changes ([v3 grid](smart-lut/v3-strong-references.jpg)). v4 (`--objective strong`, 40k iters, 32 min)
+mixes real LUTs at 80–150% (25% chained with a second LUT), strong colour grades (tints, duotones, tritones,
+`styles.random_grades`) and the v1 random looks. Result ([v4 grid](smart-lut/v4-strong-references.jpg):
+reference | photo | analytic | neural): clean magenta/mauve tint for the gel portrait, olive-yellow duotone
+for "brat" (the analytic engine gives true lime), true B&W, but still almost nothing for the orange car. The
+analytic engine takes palettes far more literally, with artifacts (blotchy colour on fabrics).
+
+The owner's references live outside the repo (`~/Scaricati`); copies used for tests: `training/smart_lut/data/refs/`
+(git-ignored). The app uses `models/smart_lut_v4.onnx`.
+
 ## Phase 4 — next steps
 
 - Host the ONNX like the other models so the app downloads it (`ai/models.rs`).
 - More / other LUT sources (creative cinematic packs, colour moods) and COCO train for more photos; mix in
   colour-transfer pairs (`smartlut/transfer.py`) if users want palettes taken more literally.
 - Regions: the model has none (one LUT for the whole photo); a variant could condition on the skin/sky masks.
+- To take palettes as literally as the analytic engine but cleanly: add colour-transfer answers
+  (`smartlut/transfer.py`, the v2 objective the owner skipped) for references dominated by one colour, or
+  distil the analytic engine's colour decisions into the model.
 - If the owner prefers it, make neural the default for photo looks and keep analytic for colour/palette looks.
 
