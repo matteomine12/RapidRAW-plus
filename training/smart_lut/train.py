@@ -19,6 +19,7 @@ from smartlut.color import linear_to_oklab, srgb_to_linear
 from smartlut.data import Photos, split
 from smartlut.model import LutNet, apply_lut, lut_regularisers
 from smartlut.styles import apply_look, random_looks
+from smartlut.transfer import transfer_answer
 
 
 def loss_fn(out, gt):
@@ -40,6 +41,12 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument(
+        "--objective",
+        choices=["transfer", "style"],
+        default="transfer",
+        help="transfer: take the reference's colours and tones (v2); style: reproduce a hidden edit (v1)",
+    )
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -74,10 +81,17 @@ def main():
     for it in bar:
         photos = next(batches).to(device, non_blocking=True)
         with torch.no_grad():
-            looks = random_looks(photos.shape[0]).to(device)
             others = photos.roll(1, 0)
-            reference = apply_look(others, looks)
-            gt = apply_look(photos, looks)
+            if args.objective == "style":
+                looks = random_looks(photos.shape[0]).to(device)
+                reference = apply_look(others, looks)
+                gt = apply_look(photos, looks)
+            else:
+                # references: real photos, some with a random look (black and white, toning, grading…)
+                looks = random_looks(photos.shape[0]).to(device)
+                styled = (torch.rand(photos.shape[0], 1, 1, 1, device=device) < 0.4).float()
+                reference = styled * apply_look(others, looks) + (1 - styled) * others
+                gt = transfer_answer(photos, reference)
         lut = model(reference, photos)
         out = apply_lut(photos, lut)
         tv, mono = lut_regularisers(lut)
