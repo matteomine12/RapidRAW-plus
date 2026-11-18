@@ -47,13 +47,22 @@ def split_luts(names: list[str], luts: torch.Tensor):
 
 
 def apply_random_luts(
-    photos: torch.Tensor, others: torch.Tensor, luts: torch.Tensor
+    photos: torch.Tensor, others: torch.Tensor, luts: torch.Tensor, low: float = 0.6, high: float = 1.0,
+    combine: float = 0.0,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Gives each pair the same random LUT at a random strength (60–100%): (reference = LUT on `others`,
-    answer = LUT on `photos`)."""
+    """Gives each pair the same random LUT at a random strength (`low`–`high`, above 1 pushes the look further),
+    sometimes (`combine`) chained with a second LUT: (reference = LUT on `others`, answer = LUT on `photos`)."""
     b = photos.shape[0]
     pick = luts[torch.randint(0, luts.shape[0], (b,))].to(photos.device)
-    strength = torch.empty(b, 1, 1, 1, device=photos.device).uniform_(0.6, 1.0)
+    second = luts[torch.randint(0, luts.shape[0], (b,))].to(photos.device)
+    chain = (torch.rand(b, 1, 1, 1, 1, device=photos.device) < combine).float()
+    if combine > 0:
+        # chaining: the second LUT sampled at the first one's output
+        grid = pick.permute(0, 2, 3, 4, 1).reshape(b, 1, -1, 1, 3) * 2 - 1
+        chained = F.grid_sample(second, grid, mode="bilinear", padding_mode="border", align_corners=True)
+        chained = chained.reshape(b, 3, 33, 33, 33)
+        pick = pick * (1 - chain) + chained * chain
+    strength = torch.empty(b, 1, 1, 1, device=photos.device).uniform_(low, high)
     ref = others + (apply_lut(others, pick) - others) * strength
     answer = photos + (apply_lut(photos, pick) - photos) * strength
     return ref.clamp(0, 1), answer.clamp(0, 1)

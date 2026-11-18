@@ -117,3 +117,52 @@ def apply_look(img: torch.Tensor, look: Look) -> torch.Tensor:
 
     out = oklab_to_linear(torch.cat([l, c * l], 1))
     return linear_to_srgb(out)
+
+
+def random_grades(batch: int, device) -> dict:
+    """Strong colour grades: 1–3 colour stops from shadows to highlights (one stop = a tint of one colour,
+    two = duotone / split toning, three = tritone), how much of the photo's own colour survives, and how much
+    of the grade is applied."""
+    stops = torch.randint(1, 4, (batch,), device=device)
+    hue = torch.rand(batch, 3, device=device) * 2 * math.pi
+    # neighbouring stops are often related hues (analogous) and sometimes complementary
+    spread = torch.where(torch.rand(batch, 1, device=device) < 0.5, 0.6, math.pi) * torch.randn(batch, 1, device=device).sign()
+    hue[:, 1:] = hue[:, :1] + spread * torch.arange(1, 3, device=device)[None] * torch.rand(batch, 1, device=device)
+    chroma = 0.06 + torch.rand(batch, 3, device=device) * 0.22
+    return {
+        "stops": stops,
+        "hue": hue,
+        "chroma": chroma,
+        "keep": torch.rand(batch, device=device) * 0.6,  # share of the photo's own chroma kept
+        "strength": 0.6 + torch.rand(batch, device=device) * 0.4,
+        "contrast": (torch.randn(batch, device=device) * 0.2).exp(),
+    }
+
+
+def apply_grade(img: torch.Tensor, grade: dict) -> torch.Tensor:
+    """`img` (B, 3, H, W) sRGB → graded sRGB (in OKLab: lightness kept with a contrast tweak, colour from a
+    gradient over the stops by lightness)."""
+    lab = linear_to_oklab(srgb_to_linear(img))
+    l = lab[:, :1]
+    k = lambda v: v[:, None, None, None]  # noqa: E731
+    l_new = (0.5 + (l - 0.5) * k(grade["contrast"])).clamp(0, 1)
+    ab_stops = torch.stack([torch.cos(grade["hue"]), torch.sin(grade["hue"])], -1) * grade["chroma"][..., None]
+    n = grade["stops"].float()
+    # position along the gradient: 0 (shadows) .. stops-1 (highlights)
+    pos = (l_new.clamp(0, 1) * (k(n) - 1)).clamp_min(0)
+    i0 = pos.floor().long().clamp(max=2)
+    i1 = (i0 + 1).clamp(max=2)
+    i1 = torch.minimum(i1, k(grade["stops"]) - 1)
+    f = pos - pos.floor()
+    gather = lambda idx: torch.gather(  # noqa: E731
+        ab_stops[:, None, None, :, :].expand(-1, l.shape[2], l.shape[3], -1, -1),
+        3,
+        idx[:, 0, :, :, None, None].expand(-1, -1, -1, 1, 2),
+    )[:, :, :, 0].permute(0, 3, 1, 2)
+    ab_grade = gather(i0) * (1 - f) + gather(i1) * f
+    # the tint fades in deep blacks and paper white, like real grades
+    fade = (l_new / 0.08).clamp(0, 1) * ((1 - l_new) / 0.08).clamp(0, 1)
+    ab = lab[:, 1:] * k(grade["keep"]) + ab_grade * fade
+    graded = torch.cat([l_new, ab], 1)
+    out = lab + (graded - lab) * k(grade["strength"])
+    return linear_to_srgb(oklab_to_linear(out))

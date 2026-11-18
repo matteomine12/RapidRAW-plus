@@ -18,7 +18,7 @@ from tqdm import tqdm
 from smartlut.color import linear_to_oklab, srgb_to_linear
 from smartlut.data import Photos, split
 from smartlut.model import LutNet, apply_lut, lut_regularisers
-from smartlut.styles import apply_look, random_looks
+from smartlut.styles import apply_grade, apply_look, random_grades, random_looks
 from smartlut.transfer import transfer_answer
 from smartlut.luts import apply_random_luts, load_luts, split_luts
 
@@ -44,9 +44,10 @@ def main():
     ap.add_argument("--resume", action="store_true")
     ap.add_argument(
         "--objective",
-        choices=["luts", "transfer", "style"],
-        default="luts",
-        help="luts: real film/creative LUTs on photo pairs (v3); transfer: take the reference's colour "
+        choices=["strong", "luts", "transfer", "style"],
+        default="strong",
+        help="strong: real LUTs pushed up to 150%% and chained, strong colour grades (tints, duotones) and "
+        "random looks (v4); luts: real film/creative LUTs on photo pairs (v3); transfer: take the reference's colour "
         "distribution (v2, abandoned); style: random synthetic looks (v1)",
     )
     args = ap.parse_args()
@@ -61,7 +62,7 @@ def main():
         Photos(train_paths), batch_size=args.batch, shuffle=True, num_workers=args.workers,
         drop_last=True, pin_memory=True, persistent_workers=args.workers > 0,
     )
-    if args.objective == "luts":
+    if args.objective in ("luts", "strong"):
         names, luts = load_luts(Path(args.data) / "luts")
         train_luts, held_names, _ = split_luts(names, luts)
         train_luts = train_luts.to(device)
@@ -89,7 +90,19 @@ def main():
         photos = next(batches).to(device, non_blocking=True)
         with torch.no_grad():
             others = photos.roll(1, 0)
-            if args.objective == "luts":
+            if args.objective == "strong":
+                b = photos.shape[0]
+                ref_l, gt_l = apply_random_luts(photos, others, train_luts, 0.8, 1.5, combine=0.25)
+                grade = random_grades(b, device)
+                ref_g, gt_g = apply_grade(others, grade), apply_grade(photos, grade)
+                looks = random_looks(b).to(device)
+                ref_s, gt_s = apply_look(others, looks), apply_look(photos, looks)
+                kind = torch.rand(b, 1, 1, 1, device=device)
+                use_l, use_g = (kind < 0.45).float(), ((kind >= 0.45) & (kind < 0.8)).float()
+                use_s = 1 - use_l - use_g
+                reference = ref_l * use_l + ref_g * use_g + ref_s * use_s
+                gt = gt_l * use_l + gt_g * use_g + gt_s * use_s
+            elif args.objective == "luts":
                 reference, gt = apply_random_luts(photos, others, train_luts)
             elif args.objective == "style":
                 looks = random_looks(photos.shape[0]).to(device)
