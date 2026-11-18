@@ -463,7 +463,7 @@ fn generate_thumbnail_data_with_metadata(
             .and_then(|m| serde_json::from_value(m.clone()).ok())
             .unwrap_or_else(Vec::new);
 
-        let mask_bitmaps = crate::masks::generation::get_cached_or_generate_masks(
+        let mut mask_bitmaps = crate::masks::generation::get_cached_or_generate_masks(
             &state,
             path_str,
             &mask_definitions,
@@ -478,7 +478,7 @@ fn generate_thumbnail_data_with_metadata(
         )
         .bitmaps;
 
-        let gpu_adjustments = get_all_adjustments_from_json(
+        let mut gpu_adjustments = get_all_adjustments_from_json(
             &meta.adjustments,
             is_raw,
             as_shot(&source_path_str),
@@ -498,6 +498,15 @@ fn generate_thumbnail_data_with_metadata(
             None
         });
 
+        let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+            &meta.adjustments,
+            &mut gpu_adjustments,
+            &mut mask_bitmaps,
+            preview_w,
+            preview_h,
+            total_scale,
+            (unscaled_crop_offset.0 * total_scale, unscaled_crop_offset.1 * total_scale),
+        );
         let processed_image = process_and_get_dynamic_image(
             context,
             &state,
@@ -507,6 +516,7 @@ fn generate_thumbnail_data_with_metadata(
                 mask_bitmaps: &mask_bitmaps,
                 mask_cache_key: None,
                 lut,
+                smart_lut,
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(

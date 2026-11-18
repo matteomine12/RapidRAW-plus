@@ -305,6 +305,7 @@ pub struct EditorRender {
     masks: crate::masks::generation::GeneratedMasks,
     mask_cache_key: u64,
     lut: Option<Arc<crate::adjustments::lut_processing::Lut>>,
+    smart_lut: Option<Arc<crate::adjustments::smart_lut::compile::SmartLutData>>,
     motion_blur: crate::effects::motion_blur::MotionBlurs,
 }
 
@@ -328,7 +329,7 @@ impl EditorRender {
             unscaled_crop_offset.0 * scale,
             unscaled_crop_offset.1 * scale,
         );
-        let masks = get_cached_or_generate_masks(
+        let mut masks = get_cached_or_generate_masks(
             state,
             &loaded_image.path,
             &mask_definitions,
@@ -339,15 +340,28 @@ impl EditorRender {
             adjustments,
         );
         let (full_w, full_h) = loaded_image.image.dimensions();
+        let mut all_adjustments = get_all_adjustments_from_json(
+            adjustments,
+            loaded_image.is_raw,
+            loaded_image.as_shot,
+            render,
+        );
+        let smart = crate::adjustments::smart_lut::render::attach(
+            adjustments,
+            &mut all_adjustments,
+            &mut masks.bitmaps,
+            width,
+            height,
+            scale,
+            crop_offset,
+        );
         Self {
-            adjustments: get_all_adjustments_from_json(
-                adjustments,
-                loaded_image.is_raw,
-                loaded_image.as_shot,
-                render,
-            ),
-            mask_cache_key: masks.cache_key ^ image_generation as u64,
+            adjustments: all_adjustments,
+            mask_cache_key: masks.cache_key
+                ^ image_generation as u64
+                ^ smart.as_ref().map_or(0, |s| s.key.rotate_left(17)),
             masks,
+            smart_lut: smart.map(|s| s.lut),
             lut: adjustments["lutPath"]
                 .as_str()
                 .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(state, p).ok()),
@@ -371,6 +385,7 @@ impl EditorRender {
             mask_bitmaps: &self.masks.bitmaps,
             mask_cache_key: Some(self.mask_cache_key),
             lut: self.lut.clone(),
+            smart_lut: self.smart_lut.clone(),
             roi,
             hsl_probe,
             motion_blur: self.motion_blur.clone(),

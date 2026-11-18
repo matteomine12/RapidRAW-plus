@@ -103,7 +103,7 @@ pub async fn generate_preset_preview(
             unscaled_crop_offset.1 * scale_for_gpu,
         );
 
-        let mask_bitmaps = get_cached_or_generate_masks(
+        let mut mask_bitmaps = get_cached_or_generate_masks(
             &state,
             &loaded_image.path,
             &mask_definitions,
@@ -123,6 +123,15 @@ pub async fn generate_preset_preview(
         let lut = lut_path
             .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(&state, p).ok());
 
+        let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+            &js_adjustments,
+            &mut all_adjustments,
+            &mut mask_bitmaps,
+            img_w,
+            img_h,
+            scale_for_gpu,
+            scaled_crop_offset,
+        );
         let processed_image = process_and_get_dynamic_image(
             &context,
             &state,
@@ -132,6 +141,7 @@ pub async fn generate_preset_preview(
                 mask_bitmaps: &mask_bitmaps,
                 mask_cache_key: None,
                 lut,
+                smart_lut,
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(
@@ -335,6 +345,7 @@ pub async fn generate_all_community_previews(
                             mask_bitmaps: &mask_bitmaps,
                             mask_cache_key: None,
                             lut,
+                            smart_lut: None,
                             roi: None,
                             hsl_probe: false,
                             motion_blur: crate::effects::motion_blur::MotionBlurs::new(

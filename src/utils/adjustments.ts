@@ -4,6 +4,7 @@ import { SubMask, SubMaskMode } from '../types/masks';
 import type { AdjustmentLayout, AppSettings } from '../types/settings';
 import type { WhiteBalance } from './whiteBalance';
 import defaultAdjustments from './defaultAdjustments.json';
+import type { SmartLutState } from './smartLut';
 import type { ParseKeys } from 'i18next';
 
 export enum ActiveChannel {
@@ -397,6 +398,7 @@ export interface Adjustments {
   sharpness: number;
   sharpnessThreshold: number;
   showClipping: boolean;
+  smartLut?: SmartLutState | null;
   hdrEnabled: boolean;
   hdrMaxEv: number;
   structure: number;
@@ -923,6 +925,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       label: 'modals.copyPaste.groups.hueShift',
       keys: [ColorAdjustment.Hue],
     },
+    { label: 'editor.adjustments.sections.smartLut', keys: ['smartLut'] },
     { label: 'modals.copyPaste.groups.colorGrading', keys: [ColorAdjustment.ColorGrading] },
     { label: 'modals.copyPaste.groups.colorMixer', keys: [ColorAdjustment.Hsl] },
     { label: 'modals.copyPaste.groups.colorCalibration', keys: ['colorCalibration'] },
@@ -1135,6 +1138,7 @@ export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUP
   .flatMap((group) => group.keys);
 
 export const ADJUSTMENT_SECTIONS: Sections = {
+  smartLut: ['smartLut'],
   basic: [
     BasicAdjustment.Brightness,
     BasicAdjustment.Contrast,

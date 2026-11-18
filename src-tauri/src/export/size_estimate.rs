@@ -107,7 +107,7 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * scale,
         );
 
-        let mask_bitmaps = get_cached_or_generate_masks(
+        let mut mask_bitmaps = get_cached_or_generate_masks(
             &state,
             &loaded_image.path,
             &mask_definitions,
@@ -127,6 +127,15 @@ pub async fn estimate_export_sizes(
         let lut = adjustments_clone["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
+        let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+            &adjustments_clone,
+            &mut all_adjustments,
+            &mut mask_bitmaps,
+            img_w,
+            img_h,
+            scale,
+            scaled_crop_offset,
+        );
         let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
@@ -136,6 +145,7 @@ pub async fn estimate_export_sizes(
                 mask_bitmaps: &mask_bitmaps,
                 mask_cache_key: None,
                 lut,
+                smart_lut,
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(
@@ -255,7 +265,7 @@ pub async fn estimate_export_sizes(
             unscaled_crop_offset.1 * gpu_scale,
         );
 
-        let mask_bitmaps = get_cached_or_generate_masks(
+        let mut mask_bitmaps = get_cached_or_generate_masks(
             &state,
             &source_path_str,
             &mask_definitions,
@@ -279,6 +289,15 @@ pub async fn estimate_export_sizes(
         let lut = js_adjustments["lutPath"]
             .as_str()
             .and_then(|p| get_or_load_lut(&state, p).ok());
+        let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+            &js_adjustments,
+            &mut all_adjustments,
+            &mut mask_bitmaps,
+            preview_w,
+            preview_h,
+            total_scale,
+            scaled_crop_offset,
+        );
         let processed_preview = process_and_get_dynamic_image_with_precision(
             &context,
             &state,
@@ -288,6 +307,7 @@ pub async fn estimate_export_sizes(
                 mask_bitmaps: &mask_bitmaps,
                 mask_cache_key: None,
                 lut,
+                smart_lut,
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(

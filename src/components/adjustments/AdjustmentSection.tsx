@@ -4,10 +4,12 @@ import CurveGraph from './Curves';
 import ColorPanel from './Color';
 import DetailsPanel from './Details';
 import EffectsPanel from './Effects';
+import SmartLutPanel from './SmartLut';
 import { ActiveTools } from '../../utils/adjustments';
 import { ToolVisibilityContext } from '../../context/ToolVisibilityContext';
 
 const SECTION_COMPONENTS: Record<string, any> = {
+  smartLut: SmartLutPanel,
   basic: BasicAdjustments,
   curves: CurveGraph,
   color: ColorPanel,

@@ -329,6 +329,7 @@
   "shadows": 0,
   "sharpness": 0,
   "sharpnessThreshold": 15,
+  "smartLut": null,
   "showClipping": false,
   "hdrEnabled": false,
   "hdrMaxEv": 3,

@@ -7,6 +7,7 @@ const KEY_NAMES: Record<string, string> = {
   flipVertical: 'Flip Vertical',
   orientationSteps: 'Rotation',
   lutPath: 'LUT',
+  smartLut: 'Smart LUT',
   lutIntensity: 'LUT Intensity',
   lutData: 'LUT Data',
   lutName: 'LUT Name',

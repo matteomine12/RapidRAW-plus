@@ -5,4 +5,5 @@ pub mod guided_perspective;
 pub mod lens_correction;
 pub mod lut_processing;
 pub mod negative_conversion;
+pub mod smart_lut;
 pub mod white_balance_picker;

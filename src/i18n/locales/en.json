@@ -249,6 +249,25 @@
       "size": "Size",
       "spatial": "Spatial",
       "vignette": "Vignette"
+    },
+    "smartLut": {
+      "color": "Color",
+      "luminance": "Luminance",
+      "library": "Your looks",
+      "fromImage": "From a photo…",
+      "fromColors": "From colors…",
+      "create": "New Smart LUT",
+      "cancel": "Cancel",
+      "rename": "Rename",
+      "delete": "Delete",
+      "remove": "Remove Smart LUT",
+      "analyzing": "Reading this photo…",
+      "namePlaceholder": "Name",
+      "paletteName": "Palette",
+      "addColor": "Add color",
+      "colorTooltip": "Click to change, right-click to remove",
+      "imagesFilter": "Images",
+      "empty": "Create a look from a photo you like, a color or a palette. It adapts to every photo: tones, colors, skin, sky and vegetation."
     }
   },
   "contextMenus": {
@@ -454,7 +473,8 @@
         "color": "Color",
         "curves": "Curves",
         "details": "Details",
-        "effects": "Effects"
+        "effects": "Effects",
+        "smartLut": "Smart LUT"
       },
       "title": "Adjustments",
       "tooltips": {

@@ -249,6 +249,25 @@
         "spin": "Rotazione",
         "smooth": "Morbido"
       }
+    },
+    "smartLut": {
+      "color": "Colore",
+      "luminance": "Luminanza",
+      "library": "I tuoi look",
+      "fromImage": "Da una foto…",
+      "fromColors": "Da colori…",
+      "create": "Nuovo Smart LUT",
+      "cancel": "Annulla",
+      "rename": "Rinomina",
+      "delete": "Elimina",
+      "remove": "Rimuovi Smart LUT",
+      "analyzing": "Analisi della foto…",
+      "namePlaceholder": "Nome",
+      "paletteName": "Palette",
+      "addColor": "Aggiungi colore",
+      "colorTooltip": "Clic per cambiare, clic destro per rimuovere",
+      "imagesFilter": "Immagini",
+      "empty": "Crea un look da una foto che ti piace, da un colore o da una palette. Si adatta a ogni foto: toni, colori, pelle, cielo e vegetazione."
     }
   },
   "contextMenus": {
@@ -472,7 +491,8 @@
         "color": "Colore",
         "curves": "Curve",
         "details": "Dettagli",
-        "effects": "Effetti"
+        "effects": "Effetti",
+        "smartLut": "Smart LUT"
       },
       "title": "Regolazioni",
       "tooltips": {

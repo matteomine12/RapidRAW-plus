@@ -358,7 +358,7 @@ pub async fn generate_uncropped_preview(
             .and_then(|m| serde_json::from_value(m.clone()).ok())
             .unwrap_or_default();
 
-        let mask_bitmaps = get_cached_or_generate_masks(
+        let mut mask_bitmaps = get_cached_or_generate_masks(
             &state,
             &path,
             &mask_definitions,
@@ -378,6 +378,15 @@ pub async fn generate_uncropped_preview(
         let lut = lut_path
             .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(&state, p).ok());
 
+        let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+            &adjustments_clone,
+            &mut uncropped_adjustments,
+            &mut mask_bitmaps,
+            preview_width,
+            preview_height,
+            scale_for_gpu,
+            (0.0, 0.0),
+        );
         if let Ok(processed_image) = process_and_get_dynamic_image(
             &context,
             &state,
@@ -387,6 +396,7 @@ pub async fn generate_uncropped_preview(
                 mask_bitmaps: &mask_bitmaps,
                 mask_cache_key: None,
                 lut,
+                smart_lut,
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(
@@ -463,7 +473,7 @@ pub async fn generate_preview_for_path(
             &js_adjustments,
             &mask_definitions,
         );
-        let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+        let mut mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
             .iter()
             .filter_map(|def| {
                 generate_mask_bitmap(
@@ -488,6 +498,15 @@ pub async fn generate_preview_for_path(
         let lut_path = js_adjustments["lutPath"].as_str();
         let lut = lut_path
             .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(&state, p).ok());
+        let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+            &js_adjustments,
+            &mut all_adjustments,
+            &mut mask_bitmaps,
+            img_w,
+            img_h,
+            scale,
+            crop_offset,
+        );
         let final_image = process_and_get_dynamic_image(
             &context,
             &state,
@@ -497,6 +516,7 @@ pub async fn generate_preview_for_path(
                 mask_bitmaps: &mask_bitmaps,
                 mask_cache_key: None,
                 lut,
+                smart_lut,
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(

@@ -99,7 +99,7 @@ fn process_image_for_export_pipeline(
         js_adjustments,
         &mask_definitions,
     );
-    let mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
+    let mut mask_bitmaps: Vec<ImageBuffer<Luma<u8>, Vec<u8>>> = mask_definitions
         .iter()
         .filter_map(|def| {
             generate_mask_bitmap(
@@ -122,6 +122,16 @@ fn process_image_for_export_pipeline(
     let lut_path = js_adjustments["lutPath"].as_str();
     let lut = lut_path.and_then(|p| get_or_load_lut(state, p).ok());
 
+    let smart_lut = crate::adjustments::smart_lut::render::attach_lut(
+        js_adjustments,
+        &mut all_adjustments,
+        &mut mask_bitmaps,
+        img_w,
+        img_h,
+        scale,
+        crop_offset,
+    );
+
     process_and_get_dynamic_image_with_precision(
         context,
         state,
@@ -131,6 +141,7 @@ fn process_image_for_export_pipeline(
             mask_bitmaps: &mask_bitmaps,
             mask_cache_key: None,
             lut,
+            smart_lut,
             roi: None,
             hsl_probe: false,
             motion_blur: crate::effects::motion_blur::MotionBlurs::new(

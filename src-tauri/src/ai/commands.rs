@@ -1034,3 +1034,79 @@ pub async fn test_ai_connector_connection(address: String) -> Result<(), String>
         Err(e) => Err(e.to_string()),
     }
 }
+
+/// Skin, sky and vegetation masks for the Smart LUT (at the size of `image`), downloading the models it
+/// needs. A region the models do not find is `None`.
+pub async fn smart_lut_region_masks(
+    app_handle: &tauri::AppHandle,
+    state: &AppState,
+    image: &DynamicImage,
+    cache_key: &str,
+    orientation_steps: u8,
+) -> Result<crate::adjustments::smart_lut::stats::Regions<Option<GrayImage>>, String> {
+    let mut models = None;
+    for kind in [AiMaskModel::Sky, AiMaskModel::Text, AiMaskModel::Face] {
+        models = Some(
+            get_or_init_ai_models(app_handle, &state.ai_state, &state.ai_init_lock, kind)
+                .await
+                .map_err(|e| e.to_string())?,
+        );
+    }
+    let models = models.ok_or("AI models unavailable")?;
+    let features = cached_esam3_features(&state.ai_state, &models, cache_key, image)?;
+
+    let sky = models
+        .esam3_sky_prompt()
+        .map_err(|e| e.to_string())
+        .and_then(|prompt| {
+            run_esam3_decoder(
+                &*models.esam3_decoder().map_err(|e| e.to_string())?,
+                &features,
+                &prompt,
+                image,
+                ESAM3_SKY_SCORE_THRESHOLD,
+                ESAM3_SKY_REFINE_EPS,
+            )
+            .map_err(|e| e.to_string())
+        });
+    let vegetation = models
+        .esam3_text_prompt("vegetation")
+        .map_err(|e| e.to_string())
+        .and_then(|prompt| {
+            run_esam3_zoomed_decoder(
+                &*models.esam3_image_encoder().map_err(|e| e.to_string())?,
+                &*models.esam3_decoder().map_err(|e| e.to_string())?,
+                &features,
+                &prompt,
+                image,
+                ESAM3_TEXT_SCORE_THRESHOLD,
+                ESAM3_TEXT_REFINE_EPS,
+            )
+            .map_err(|e| e.to_string())
+        });
+    let transform = MaskTransform {
+        rotation: 0.0,
+        flip_horizontal: false,
+        flip_vertical: false,
+        orientation_steps,
+    };
+    let skin = cached_face_analysis(&state.ai_state, &models, cache_key, image, transform).map(
+        |analysis| {
+            (!analysis.faces.is_empty())
+                .then(|| compose_face_mask(image, &analysis, &[FacePart::FaceSkin, FacePart::BodySkin]))
+        },
+    );
+
+    let keep = |name: &str, result: Result<Option<GrayImage>, String>| match result {
+        Ok(mask) => mask.filter(|m| m.iter().any(|&v| v >= 128)),
+        Err(error) => {
+            log::warn!("Smart LUT {} mask failed: {}", name, error);
+            None
+        }
+    };
+    Ok(crate::adjustments::smart_lut::stats::Regions {
+        skin: keep("skin", skin),
+        sky: keep("sky", sky),
+        vegetation: keep("vegetation", vegetation),
+    })
+}

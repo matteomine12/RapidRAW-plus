@@ -1,5 +1,6 @@
 import { useEditorStore } from '../store/useEditorStore';
 import { Adjustments } from './adjustments';
+import { smartLutRegionCacheId } from './smartLut';
 
 const CACHED_EFFECT_MAP_PREFIX = '__cached__:';
 const EFFECT_MAP_KEYS = ['lensBlurDepthMap', 'fogDepthMap', 'motionBlurDepthMap', 'relightNormalMap'] as const;
@@ -97,6 +98,20 @@ export const prepareAdjustmentsPayload = (adjustments: Adjustments): Adjustments
     payload.masks.forEach((container: any) => {
       if (container.subMasks) processSubMasks(container.subMasks);
     });
+  }
+
+  // Smart LUT region masks are sent once, then as null (the backend keeps them by id)
+  const smartAnalysis = payload.smartLut?.analysis;
+  if (smartAnalysis?.id && smartAnalysis.regions) {
+    for (const [region, params] of Object.entries<{ maskDataBase64?: string | null } | null>(smartAnalysis.regions)) {
+      if (!params?.maskDataBase64) continue;
+      const id = smartLutRegionCacheId(smartAnalysis.id, region);
+      if (patchesSentToBackend.has(id)) {
+        params.maskDataBase64 = null;
+      } else {
+        newlySent.add(id);
+      }
+    }
   }
 
   return {

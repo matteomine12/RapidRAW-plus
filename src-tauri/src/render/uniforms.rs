@@ -130,7 +130,8 @@ pub struct GlobalAdjustments {
     pub lut_is_scene_referred: u32,
     pub vignette_center_x: f32,
     pub vignette_center_y: f32,
-    _pad_lut5: f32,
+    /// Smart LUT: exposure (stops) the default render applies before the look (baseline, not the user's).
+    pub smart_baseline: f32,
 
     /// Linear peak of the HDR render (SDR white = 1). 1.0 = HDR off.
     pub hdr_peak: f32,
@@ -142,17 +143,22 @@ pub struct GlobalAdjustments {
     pub wb_rgb_to_lms_matrix: GpuMat3,
     pub wb_lms_to_rgb_matrix: GpuMat3,
 
-    _pad_cg1: f32,
-    _pad_cg2: f32,
-    _pad_cg3: f32,
-    _pad_cg4: f32,
+    /// Smart LUT: 1 = the look is applied under the edit.
+    pub smart_lut_enabled: u32,
+    /// Smart LUT colour amount (1 = the look as extracted, 0 = original colours, up to 2).
+    pub smart_color: f32,
+    /// Smart LUT luminance amount (1 = the look's tones, 0 = original tones, up to 2).
+    pub smart_luminance: f32,
+    /// Smart LUT regions present as mask layers: bit 0 skin, bit 1 sky, bit 2 vegetation.
+    pub smart_regions: u32,
     pub color_grading_shadows: ColorGradeSettings,
     pub color_grading_midtones: ColorGradeSettings,
     pub color_grading_highlights: ColorGradeSettings,
     pub color_grading_global: ColorGradeSettings,
     pub color_grading_blending: f32,
     pub color_grading_balance: f32,
-    _pad2: f32,
+    /// Smart LUT: first mask layer holding the region weights (after the user's masks).
+    pub smart_region_start: u32,
     _pad3: f32,
 
     pub color_calibration: ColorCalibrationSettings,
@@ -823,7 +829,7 @@ fn get_global_adjustments_from_json(
         lut_is_scene_referred,
         vignette_center_x: get_val("vignette", "vignetteCenterX", 1.0, Some(0.5)),
         vignette_center_y: get_val("vignette", "vignetteCenterY", 1.0, Some(0.5)),
-        _pad_lut5: 0.0,
+        smart_baseline: baseline_exposure,
 
         hdr_peak,
         hdr_ev0,
@@ -833,10 +839,10 @@ fn get_global_adjustments_from_json(
         wb_rgb_to_lms_matrix: mat3_to_gpu_mat3(rgb_to_lms),
         wb_lms_to_rgb_matrix: mat3_to_gpu_mat3(rgb_to_lms.inverse()),
 
-        _pad_cg1: 0.0,
-        _pad_cg2: 0.0,
-        _pad_cg3: 0.0,
-        _pad_cg4: 0.0,
+        smart_lut_enabled: 0,
+        smart_color: 1.0,
+        smart_luminance: 1.0,
+        smart_regions: 0,
         color_grading_shadows: if color_grading_visible {
             parse_color_grade_settings(&cg_obj["shadows"])
         } else {
@@ -867,7 +873,7 @@ fn get_global_adjustments_from_json(
         } else {
             0.0
         },
-        _pad2: 0.0,
+        smart_region_start: 0,
         _pad3: 0.0,
 
         color_calibration: color_cal_settings,

@@ -7,6 +7,7 @@ use image::{ImageBuffer, Luma};
 use wgpu::util::{DeviceExt, TextureDataOrder};
 
 use crate::adjustments::lut_processing::Lut;
+use crate::adjustments::smart_lut::compile::{LUT_SLOTS, SmartLutData};
 use crate::app::state::{AnalyticsConfig, AnalyticsJob, GpuImageEntry};
 use crate::render::analytics::{AnalyticsFrame, AnalyticsPixels};
 use crate::render::gpu::context::GpuContext;
@@ -45,6 +46,7 @@ pub struct RenderRequest<'a> {
     pub mask_bitmaps: &'a [ImageBuffer<Luma<u8>, Vec<u8>>],
     pub mask_cache_key: Option<u64>,
     pub lut: Option<Arc<Lut>>,
+    pub smart_lut: Option<Arc<SmartLutData>>,
     pub roi: Option<Roi>,
     pub hsl_probe: bool,
     pub motion_blur: crate::effects::motion_blur::MotionBlurs,
@@ -195,6 +197,7 @@ pub struct GpuProcessor {
     motion_cache: std::sync::Mutex<Vec<(u64, Arc<MotionBlurred>)>>,
     motion_grain: std::sync::Mutex<Vec<(u64, f32)>>,
     lut_cache: std::sync::Mutex<Option<LutCache>>,
+    smart_lut_cache: std::sync::Mutex<Option<(Arc<SmartLutData>, wgpu::TextureView)>>,
     ping_pong_view: wgpu::TextureView,
     sharpness_blur_view: wgpu::TextureView,
     blur_source: std::sync::Mutex<Option<(u64, BlurParams)>>,
@@ -512,6 +515,7 @@ impl GpuProcessor {
             motion_cache: std::sync::Mutex::new(Vec::new()),
             motion_grain: std::sync::Mutex::new(Vec::new()),
             lut_cache: std::sync::Mutex::new(None),
+            smart_lut_cache: std::sync::Mutex::new(None),
             ping_pong_view,
             sharpness_blur_view,
             blur_source: std::sync::Mutex::new(None),
@@ -1226,6 +1230,50 @@ impl GpuProcessor {
         (view, sampler)
     }
 
+    fn smart_lut_view(&self, lut: &Arc<SmartLutData>) -> wgpu::TextureView {
+        let mut cache = self
+            .smart_lut_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some((cached, view)) = cache.as_ref()
+            && Arc::ptr_eq(cached, lut)
+        {
+            return view.clone();
+        }
+        let size = lut.size as u32;
+        let mut rgba = Vec::with_capacity(lut.data.len() / 3 * 4);
+        for chunk in lut.data.as_chunks::<3>().0 {
+            rgba.extend_from_slice(&[
+                f16::from_f32(chunk[0]),
+                f16::from_f32(chunk[1]),
+                f16::from_f32(chunk[2]),
+                f16::ONE,
+            ]);
+        }
+        let texture = self.context.device.create_texture_with_data(
+            &self.context.queue,
+            &wgpu::TextureDescriptor {
+                label: Some("Smart LUT 3D Texture"),
+                size: wgpu::Extent3d {
+                    width: size,
+                    height: size,
+                    depth_or_array_layers: size * LUT_SLOTS as u32,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D3,
+                format: wgpu::TextureFormat::Rgba16Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            TextureDataOrder::MipMajor,
+            bytemuck::cast_slice(&rgba),
+        );
+        let view = texture.create_view(&Default::default());
+        *cache = Some((Arc::clone(lut), view.clone()));
+        view
+    }
+
     fn main_pipeline_for(&self, mode: PipelineMode, features: u32) -> wgpu::ComputePipeline {
         let (generic, shader, layout) = match mode {
             PipelineMode::Standard => (
@@ -1532,6 +1580,11 @@ impl GpuProcessor {
             ),
         };
 
+        let smart_lut_view = match &request.smart_lut {
+            Some(lut) => self.smart_lut_view(lut),
+            None => self.pipelines.dummy_lut_view.clone(),
+        };
+
         let adjustments = request.adjustments;
         let light = match crate::effects::light::LightJob::new(input.id, &adjustments) {
             Some(job) => Some(self.light_maps(input, job)?),
@@ -1781,6 +1834,10 @@ impl GpuProcessor {
                     binding: 14 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(airlight_view),
                 });
+                bind_group_entries.push(wgpu::BindGroupEntry {
+                    binding: 15 + MAX_MASK_BINDINGS,
+                    resource: wgpu::BindingResource::TextureView(&smart_lut_view),
+                });
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Tile Bind Group"),
@@ -1976,6 +2033,7 @@ mod wide_gamut_tests {
                     mask_bitmaps: &[],
                     mask_cache_key: None,
                     lut: None,
+                    smart_lut: None,
                     roi: None,
                     hsl_probe: false,
                     motion_blur: Default::default(),
@@ -2057,5 +2115,143 @@ mod wide_gamut_tests {
                 assert!(w.iter().all(|v| *v >= -0.01), "{w:?}");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod smart_lut_tests {
+    use super::*;
+    use crate::adjustments::smart_lut::look::from_colors;
+    use crate::adjustments::smart_lut::stats::{Encoding, Regions, analyze};
+    use crate::decode::as_shot::AsShot;
+    use crate::render::options::RenderOptions;
+    use crate::render::uniforms::get_all_adjustments_from_json;
+
+    const W: u32 = 32;
+    const H: u32 = 8;
+    const COLOURS: [[f32; 3]; 4] = [
+        [0.05, 0.10, 0.20],
+        [0.30, 0.15, 0.05],
+        [0.10, 0.30, 0.08],
+        [0.40, 0.40, 0.40],
+    ];
+
+    fn render(context: &GpuContext, json: serde_json::Value) -> Vec<[f32; 3]> {
+        let processor = GpuProcessor::new(context.clone(), W, H).expect("processor");
+        let mut halves = Vec::new();
+        for _y in 0..H {
+            for x in 0..W {
+                let c = COLOURS[(x / (W / 4)) as usize];
+                halves.extend([f16::from_f32(c[0]), f16::from_f32(c[1]), f16::from_f32(c[2]), f16::ONE]);
+            }
+        }
+        let slot = crate::render::gpu::compute::upload_image(context, (W, H), &halves);
+        let guided = processor.build_guided_coeffs(&slot.view, W, H, 1);
+        let entry = GpuImageEntry {
+            id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
+            texture: slot.texture,
+            texture_view: slot.view,
+            gf_coeffs_view: guided.coeffs,
+            tone_base_view: guided.tone_base,
+            haze_view: guided.haze,
+            airlight_view: guided.airlight,
+            is_raw: 1,
+            width: W,
+            height: H,
+            transform_key: 1,
+            source_identity: 1,
+        };
+        let mut adjustments =
+            get_all_adjustments_from_json(&json, true, AsShot::reference(), RenderOptions::default());
+        let mut masks = Vec::new();
+        let smart = crate::adjustments::smart_lut::render::attach_lut(
+            &json, &mut adjustments, &mut masks, W, H, 1.0, (0.0, 0.0),
+        );
+        let mask = processor.mask_view(&masks, W, H, None);
+        let (pixels, _, _, _, _) = processor
+            .run(
+                &entry,
+                &mask,
+                RenderRequest {
+                    adjustments,
+                    mask_bitmaps: &masks,
+                    mask_cache_key: None,
+                    lut: None,
+                    smart_lut: smart,
+                    roi: None,
+                    hsl_probe: false,
+                    motion_blur: Default::default(),
+                },
+                false,
+                RenderOutputPrecision::EightBit,
+            )
+            .expect("render");
+        // let the specialised pipeline finish compiling before the device goes away
+        for _ in 0..400 {
+            let pending = processor
+                .pipelines
+                .specialized_pipelines
+                .lock()
+                .unwrap()
+                .values()
+                .any(|p| p.is_none());
+            if !pending {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        let RenderedPixels::U8(p) = pixels else { panic!("8-bit") };
+        (0..4)
+            .map(|i| {
+                let at = ((H / 2) * W + i * (W / 4) + W / 8) as usize * 4;
+                [0, 1, 2].map(|c| p[at + c] as f32 / 255.0)
+            })
+            .collect()
+    }
+
+    fn smart_json(colors: &[[f32; 3]], color: f32, luminance: f32) -> serde_json::Value {
+        let look = from_colors("t".into(), colors).unwrap();
+        let target = image::DynamicImage::ImageRgb32F(image::Rgb32FImage::from_fn(W, H, |x, _| {
+            image::Rgb(COLOURS[(x / (W / 4)) as usize].map(|v| v.powf(1.0 / 2.38)))
+        }));
+        let stats = analyze(&target, Encoding::RawPreview, &Regions::default(), false);
+        serde_json::json!({
+            "smartLut": {
+                "look": look,
+                "color": color,
+                "luminance": luminance,
+                "analysis": { "id": "test", "stats": stats, "regions": {} },
+            }
+        })
+    }
+
+    fn context() -> Option<GpuContext> {
+        crate::render::gpu::context::test_gpu_context().ok()
+    }
+
+    #[test]
+    fn a_grey_look_renders_black_and_white() {
+        let Some(context) = context() else { return };
+        let out = render(&context, smart_json(&[[0.5, 0.5, 0.5]], 100.0, 100.0));
+        for c in &out {
+            eprintln!("{c:?}");
+            assert!((c[0] - c[1]).abs() < 0.02 && (c[2] - c[1]).abs() < 0.02, "{c:?}");
+        }
+    }
+
+    #[test]
+    fn zero_amounts_give_back_the_plain_render() {
+        let Some(context) = context() else { return };
+        let plain = render(&context, serde_json::json!({}));
+        let off = render(&context, smart_json(&[[0.9, 0.3, 0.1]], 0.0, 0.0));
+        let on = render(&context, smart_json(&[[0.9, 0.3, 0.1]], 100.0, 100.0));
+        for i in 0..4 {
+            eprintln!("plain {:?} off {:?} on {:?}", plain[i], off[i], on[i]);
+            for c in 0..3 {
+                assert!((plain[i][c] - off[i][c]).abs() < 0.02, "{i}: {:?} vs {:?}", plain[i], off[i]);
+            }
+        }
+        // a warm look warms the cool patch
+        assert!(on[0][0] - on[0][2] > plain[0][0] - plain[0][2]);
     }
 }

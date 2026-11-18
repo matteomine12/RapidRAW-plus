@@ -38,6 +38,8 @@ const F_AGX: u32 = 1024;
 
 const F_MONOCHROME: u32 = 2048;
 
+const F_SMART_LUT: u32 = 4096;
+
 pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     let g = &adjustments.global;
     let masks = &adjustments.mask_adjustments[..(adjustments.mask_count as usize).min(MAX_MASKS)];
@@ -84,6 +86,7 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     );
     set(F_AGX, g.tonemapper_mode == 1);
     set(F_MONOCHROME, g.monochrome.enabled == 1);
+    set(F_SMART_LUT, g.smart_lut_enabled == 1);
     features
 }
 
@@ -453,6 +456,17 @@ impl GpuPipelines {
                 count: None,
             });
         }
+
+        bind_group_layout_entries.push(wgpu::BindGroupLayoutEntry {
+            binding: 15 + MAX_MASK_BINDINGS,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                view_dimension: wgpu::TextureViewDimension::D3,
+                multisampled: false,
+            },
+            count: None,
+        });
 
         let main_bgl = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Main BGL"),

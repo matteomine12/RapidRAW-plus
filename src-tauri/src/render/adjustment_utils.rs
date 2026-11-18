@@ -53,6 +53,45 @@ pub fn hydrate_sub_masks(
     }
 }
 
+/// The Smart LUT region masks travel like AI sub-mask data: sent once, then as null and restored here.
+fn hydrate_smart_lut_regions(
+    adjustments: &mut serde_json::Value,
+    cache: &mut HashMap<String, serde_json::Value>,
+) {
+    let Some(analysis) = adjustments
+        .get_mut("smartLut")
+        .and_then(|s| s.get_mut("analysis"))
+        .filter(|a| a.is_object())
+    else {
+        return;
+    };
+    let Some(id) = analysis["id"].as_str().map(str::to_owned) else {
+        return;
+    };
+    let Some(regions) = analysis
+        .get_mut("regions")
+        .and_then(|r| r.as_object_mut())
+    else {
+        return;
+    };
+    for (name, params) in regions.iter_mut() {
+        let Some(params) = params.as_object_mut() else {
+            continue;
+        };
+        let key = format!("smartlut:{}:{}", id, name);
+        match params.get("maskDataBase64") {
+            Some(data) if data.is_string() => {
+                cache.insert(key, data.clone());
+            }
+            _ => {
+                if let Some(data) = cache.get(&key) {
+                    params.insert("maskDataBase64".to_string(), data.clone());
+                }
+            }
+        }
+    }
+}
+
 pub fn hydrate_adjustments(state: &tauri::State<AppState>, adjustments: &mut serde_json::Value) {
     let mut cache = state.patch_cache.lock().unwrap();
 
@@ -97,6 +136,8 @@ pub fn hydrate_adjustments(state: &tauri::State<AppState>, adjustments: &mut ser
             }
         }
     }
+
+    hydrate_smart_lut_regions(adjustments, &mut cache);
 
     let effect_map_ids = adjustments
         .as_object_mut()

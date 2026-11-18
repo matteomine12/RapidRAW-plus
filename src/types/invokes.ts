@@ -1,4 +1,10 @@
 export enum Invokes {
+  AnalyzeSmartLutTarget = 'analyze_smart_lut_target',
+  CreateSmartLutFromColors = 'create_smart_lut_from_colors',
+  CreateSmartLutFromImage = 'create_smart_lut_from_image',
+  DeleteSmartLut = 'delete_smart_lut',
+  ListSmartLuts = 'list_smart_luts',
+  RenameSmartLut = 'rename_smart_lut',
   AddTagForPaths = 'add_tag_for_paths',
   ApplyAdjustments = 'apply_adjustments',
   ApplyAdjustmentsToPaths = 'apply_adjustments_to_paths',

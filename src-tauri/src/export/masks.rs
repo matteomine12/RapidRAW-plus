@@ -136,6 +136,7 @@ pub fn export_masks_for_image(
                     mask_bitmaps: &single_bitmaps,
                     mask_cache_key: None,
                     lut: lut.clone(),
+                    smart_lut: None,
                     roi: None,
                     hsl_probe: false,
                     motion_blur: Default::default(),

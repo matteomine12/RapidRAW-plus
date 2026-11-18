@@ -29,6 +29,7 @@ import { getOpenImageDefaults } from '../../../utils/developDefaults';
 import { useUIStore } from '../../../store/useUIStore';
 import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import { useSmartLutAutoAnalysis } from '../../../hooks/useSmartLut';
 import type { ParseKeys } from 'i18next';
 
 function AdjustmentSectionContent(props: {
@@ -43,6 +44,7 @@ function AdjustmentSectionContent(props: {
 
 export default function Controls() {
   const { t } = useTranslation();
+  useSmartLutAutoAnalysis();
   const { showContextMenu } = useContextMenu();
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();

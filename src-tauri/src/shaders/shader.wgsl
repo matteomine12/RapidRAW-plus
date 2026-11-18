@@ -90,7 +90,7 @@ struct GlobalAdjustments {
     lut_is_scene_referred: u32,
     vignette_center_x: f32,
     vignette_center_y: f32,
-    _pad_lut5: f32,
+    smart_baseline: f32,
 
     hdr_peak: f32,
     hdr_ev0: f32,
@@ -100,17 +100,17 @@ struct GlobalAdjustments {
     wb_rgb_to_lms_matrix: mat3x3<f32>,
     wb_lms_to_rgb_matrix: mat3x3<f32>,
 
-    _pad_cg1: f32,
-    _pad_cg2: f32,
-    _pad_cg3: f32,
-    _pad_cg4: f32,
+    smart_lut_enabled: u32,
+    smart_color: f32,
+    smart_luminance: f32,
+    smart_regions: u32,
     color_grading_shadows: ColorGradeSettings,
     color_grading_midtones: ColorGradeSettings,
     color_grading_highlights: ColorGradeSettings,
     color_grading_global: ColorGradeSettings,
     color_grading_blending: f32,
     color_grading_balance: f32,
-    _pad2: f32,
+    smart_region_start: u32,
     _pad3: f32,
 
     color_calibration: ColorCalibrationSettings,
@@ -236,6 +236,7 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(13) var tone_base_texture: texture_2d<f32>;
 @group(0) @binding(14) var haze_texture: texture_2d<f32>;
 @group(0) @binding(15) var airlight_texture: texture_2d<f32>;
+@group(0) @binding(16) var smart_lut_texture: texture_3d<f32>;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const HZ_OMEGA: f32 = 0.95;
@@ -350,6 +351,7 @@ const F_LUT: u32 = 256u;
 const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
+const F_SMART_LUT: u32 = 4096u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -1956,6 +1958,83 @@ fn sample_lut_tetrahedral(uv: vec3<f32>) -> vec3<f32> {
     return res;
 }
 
+fn vlog_to_linear(c: vec3<f32>) -> vec3<f32> {
+    let low = (c - vec3<f32>(0.125)) / 5.6;
+    let high = pow(vec3<f32>(10.0), (c - vec3<f32>(0.598206)) / 0.241514) - vec3<f32>(0.00873);
+    return max(select(high, low, c <= vec3<f32>(0.181)), vec3<f32>(0.0));
+}
+
+fn smart_lut_load(c: vec3<i32>, slot: i32, size: i32) -> vec3<f32> {
+    return textureLoad(smart_lut_texture, vec3<i32>(c.x, c.y, c.z + slot * size), 0).rgb;
+}
+
+// Tetrahedral lookup in one of the Smart LUT's stacked tables (slot 0 whole image, 1 skin, 2 sky, 3 vegetation).
+fn sample_smart_lut(uv: vec3<f32>, slot: i32) -> vec3<f32> {
+    let size = i32(textureDimensions(smart_lut_texture).x);
+    let scaled = clamp(uv, vec3<f32>(0.0), vec3<f32>(1.0)) * f32(size - 1);
+    let base = floor(scaled);
+    let f = scaled - base;
+    let c0 = vec3<i32>(base);
+    let c1 = min(c0 + vec3<i32>(1), vec3<i32>(size - 1));
+    let c000 = smart_lut_load(c0, slot, size);
+    let c111 = smart_lut_load(c1, slot, size);
+    var res: vec3<f32>;
+    if (f.r > f.g) {
+        if (f.g > f.b) {
+            res = c000 * (1.0 - f.r) + smart_lut_load(vec3<i32>(c1.x, c0.y, c0.z), slot, size) * (f.r - f.g)
+                + smart_lut_load(vec3<i32>(c1.x, c1.y, c0.z), slot, size) * (f.g - f.b) + c111 * f.b;
+        } else if (f.r > f.b) {
+            res = c000 * (1.0 - f.r) + smart_lut_load(vec3<i32>(c1.x, c0.y, c0.z), slot, size) * (f.r - f.b)
+                + smart_lut_load(vec3<i32>(c1.x, c0.y, c1.z), slot, size) * (f.b - f.g) + c111 * f.g;
+        } else {
+            res = c000 * (1.0 - f.b) + smart_lut_load(vec3<i32>(c0.x, c0.y, c1.z), slot, size) * (f.b - f.r)
+                + smart_lut_load(vec3<i32>(c1.x, c0.y, c1.z), slot, size) * (f.r - f.g) + c111 * f.g;
+        }
+    } else {
+        if (f.b > f.g) {
+            res = c000 * (1.0 - f.b) + smart_lut_load(vec3<i32>(c0.x, c0.y, c1.z), slot, size) * (f.b - f.g)
+                + smart_lut_load(vec3<i32>(c0.x, c1.y, c1.z), slot, size) * (f.g - f.r) + c111 * f.r;
+        } else if (f.b > f.r) {
+            res = c000 * (1.0 - f.g) + smart_lut_load(vec3<i32>(c0.x, c1.y, c0.z), slot, size) * (f.g - f.b)
+                + smart_lut_load(vec3<i32>(c0.x, c1.y, c1.z), slot, size) * (f.b - f.r) + c111 * f.r;
+        } else {
+            res = c000 * (1.0 - f.g) + smart_lut_load(vec3<i32>(c0.x, c1.y, c0.z), slot, size) * (f.g - f.r)
+                + smart_lut_load(vec3<i32>(c1.x, c1.y, c0.z), slot, size) * (f.r - f.b) + c111 * f.b;
+        }
+    }
+    return res;
+}
+
+// The Smart LUT, applied under the edit. `src` is the photo's scene light before exposure; the result is
+// the light after the look, at the level the default render would have before the user's exposure.
+// The LUT is indexed by the photo normalised so its median (`key`, log2) sits at 0.18, which makes the
+// look's tone mapping independent of how the photo was exposed. Colour and luminance amounts mix the look
+// with the default render in OKLab: lightness for luminance, chroma relative to lightness for colour.
+fn apply_smart_lut(src: vec3<f32>, coords: vec2<u32>, key: f32) -> vec3<f32> {
+    let g = adjustments.global;
+    let n = max(src, vec3<f32>(0.0)) * (0.18 / exp2(key));
+    let encoded = linear_to_vlog(n);
+    var look = vlog_to_linear(sample_smart_lut(encoded, 0));
+    var layer = g.smart_region_start;
+    for (var r = 0u; r < 3u; r = r + 1u) {
+        if ((g.smart_regions & (1u << r)) != 0u) {
+            let w = get_mask_influence(layer, coords);
+            if (w > 0.001) {
+                look = mix(look, vlog_to_linear(sample_smart_lut(encoded, i32(r) + 1)), w);
+            }
+            layer = layer + 1u;
+        }
+    }
+    let base = max(src, vec3<f32>(0.0)) * exp2(g.smart_baseline);
+    let lab_base = linear_srgb_to_oklab(base);
+    let lab_look = linear_srgb_to_oklab(max(look, vec3<f32>(0.0)));
+    let l_out = max(mix(lab_base.x, lab_look.x, g.smart_luminance), 0.0);
+    let c_base = lab_base.yz / max(lab_base.x, 1.0e-4);
+    let c_look = lab_look.yz / max(lab_look.x, 1.0e-4);
+    let c_out = mix(c_base, c_look, g.smart_color);
+    return max(oklab_to_linear_srgb(vec3<f32>(l_out, c_out * l_out)), vec3<f32>(0.0));
+}
+
 fn sample_light(t: texture_2d<f32>, uv: vec2<f32>) -> vec4<f32> {
     let dims = vec2<f32>(textureDimensions(t));
     let p = uv * dims - 0.5;
@@ -2247,7 +2326,15 @@ fn main(
         locally_contrasted_rgb = apply_dehaze(locally_contrasted_rgb, absolute_coord, local_luma, t_dehaze);
     }
 
-    var processed_rgb = apply_linear_exposure(locally_contrasted_rgb, t_exposure);
+    var processed_rgb: vec3<f32>;
+    if (has_feature(F_SMART_LUT) && adjustments.global.smart_lut_enabled == 1u) {
+        let smart_key = textureLoad(airlight_texture, vec2<i32>(2, 0), 0).w;
+        let smart_rgb = apply_smart_lut(locally_contrasted_rgb, absolute_coord, smart_key);
+        // the look replaces the default exposure; the user's exposure (and masks') still applies on top
+        processed_rgb = apply_linear_exposure(smart_rgb, t_exposure - adjustments.global.smart_baseline);
+    } else {
+        processed_rgb = apply_linear_exposure(locally_contrasted_rgb, t_exposure);
+    }
 
     if (has_feature(F_GLOW_HALATION_FLARE)) {
         let light_uv = (vec2<f32>(absolute_coord) + 0.5) / full_dims;
