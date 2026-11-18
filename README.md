@@ -37,6 +37,7 @@ RapidRAW+ is a fork of [RapidRAW](https://github.com/CyberTimon/RapidRAW) by Cyb
   - **No glow:** titles and buttons no longer have glow or shiny shadows.
   - **Expressive components:** pill buttons and segmented controls, larger corner radii, frosted dialogs, menus, tooltips and toasts, a Material 3 switch, a pill slider handle that narrows while dragged, a thick progress bar with a stop indicator, state layers on hover and press, and visible keyboard focus rings.
   - **Motion:** shared spring presets (`src/utils/motion.ts`) for everything that moves, plain eases for colour changes, and reduced-motion support.
+- **Smart LUT:** looks made from a reference photo, a colour or a palette, saved and applied under the edit. Each look adapts to the photo: tones relative to its median, colour per tonal band, and separate treatment of skin, sky and vegetation (AI masks). A colour × luminance pad sets the amount. Design, state and next steps: [`docs/smart-lut.md`](docs/smart-lut.md); model training kit: [`training/smart_lut/`](training/smart_lut/).
 - **RAW fix:** 24 MP RAW files develop on GPUs with a 128 MB storage buffer limit (for example Adreno on Windows on ARM).
 
 Upstream changes are tracked through the `upstream` remote (`git fetch upstream`).
