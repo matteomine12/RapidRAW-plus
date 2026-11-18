@@ -9,9 +9,9 @@ const STEP = 5;
 
 interface SmartLutPadProps {
   look: Pick<SmartLook, 'palette' | 'monochrome'>;
-  /** 0..200, horizontal. */
+  /** 0..100, horizontal (right = more). */
   color: number;
-  /** 0..200, vertical (up = more). */
+  /** 0..100, vertical (up = more). */
   luminance: number;
   disabled?: boolean;
   colorLabel: string;
@@ -24,7 +24,8 @@ const clamp = (v: number) => Math.min(SMART_LUT_MAX, Math.max(0, v));
 
 /**
  * The look's colour × luminance pad: a square painted with the look's colours and a grid of dots, the row and
- * column through the handle lit up. Drag (or use the arrow keys) to move; double-click returns to the centre.
+ * column through the handle lit up. Drag (or use the arrow keys) to move; double-click returns to the whole look
+ * (top right). The ring at the bottom left marks no effect.
  */
 export default function SmartLutPad({
   look,
@@ -53,9 +54,7 @@ export default function SmartLutPad({
         Math.min(1, Math.max(0, ((offset / size) * DOTS - 0.5) / (DOTS - 1)));
       const fx = along(clientX - rect.left, rect.width);
       const fy = along(clientY - rect.top, rect.height);
-      // a light pull toward the centre lines makes the neutral values easy to hit
-      const snap = (v: number) => (Math.abs(v - SMART_LUT_NEUTRAL) < 4 ? SMART_LUT_NEUTRAL : v);
-      onChange(snap(Math.round(fx * SMART_LUT_MAX)), snap(Math.round((1 - fy) * SMART_LUT_MAX)));
+      onChange(Math.round(fx * SMART_LUT_MAX), Math.round((1 - fy) * SMART_LUT_MAX));
     },
     [onChange],
   );
@@ -95,23 +94,22 @@ export default function SmartLutPad({
   };
 
   const dots = [];
-  const centre = (DOTS - 1) / 2;
   for (let r = 0; r < DOTS; r++) {
     for (let c = 0; c < DOTS; c++) {
       const onLine = r === row || c === column;
       if (r === row && c === column) continue;
-      const isCentre = r === centre && c === centre;
+      const isOrigin = r === DOTS - 1 && c === 0;
       const fade = 0.45;
       dots.push(
         <circle
           key={`${r}-${c}`}
           cx={(c + 0.5) * (100 / DOTS)}
           cy={(r + 0.5) * (100 / DOTS)}
-          r={isCentre && !onLine ? 1.45 : onLine ? 1.15 : 0.85}
-          fill={isCentre && !onLine ? 'none' : 'white'}
-          stroke={isCentre && !onLine ? 'white' : 'none'}
+          r={isOrigin && !onLine ? 1.45 : onLine ? 1.15 : 0.85}
+          fill={isOrigin && !onLine ? 'none' : 'white'}
+          stroke={isOrigin && !onLine ? 'white' : 'none'}
           strokeWidth={0.45}
-          opacity={onLine ? 0.95 : isCentre ? 0.7 : fade}
+          opacity={onLine ? 0.95 : isOrigin ? 0.7 : fade}
         />,
       );
     }

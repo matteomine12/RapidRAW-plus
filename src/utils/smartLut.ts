@@ -43,16 +43,16 @@ export interface SmartLutAnalysis {
 
 export interface SmartLutState {
   look: SmartLook;
-  /** 0..200, 100 = the look as extracted. */
+  /** 0..100, 100 = the look as extracted. */
   color: number;
-  /** 0..200, 100 = the look as extracted. */
+  /** 0..100, 100 = the look as extracted. */
   luminance: number;
   analysis: SmartLutAnalysis | null;
 }
 
 export const SMART_LUT_REGIONS: Array<SmartLutRegionName> = ['skin', 'sky', 'vegetation'];
 export const SMART_LUT_NEUTRAL = 100;
-export const SMART_LUT_MAX = 200;
+export const SMART_LUT_MAX = 100;
 
 export const smartLutRegionCacheId = (analysisId: string, region: string) => `smartlut:${analysisId}:${region}`;
 
