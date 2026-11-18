@@ -4,6 +4,7 @@
 pub mod color;
 pub mod compile;
 pub mod look;
+pub mod neural;
 pub mod render;
 pub mod stats;
 
@@ -71,7 +72,11 @@ pub fn list_smart_luts(app_handle: AppHandle) -> Result<Vec<SmartLook>, String> 
 pub fn delete_smart_lut(id: String, app_handle: AppHandle) -> Result<(), String> {
     let path = look_path(&looks_dir(&app_handle)?, &id)?;
     if path.exists() {
-        fs::remove_file(path).map_err(|e| e.to_string())?;
+        fs::remove_file(&path).map_err(|e| e.to_string())?;
+    }
+    let reference = path.with_extension("ref.png");
+    if reference.exists() {
+        fs::remove_file(reference).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -162,9 +167,36 @@ pub async fn create_smart_lut_from_image(
                 .map(str::to_string)
         })
         .unwrap_or_else(|| "Smart LUT".to_string());
-    let look = look::from_reference(name, &stats);
+    let mut look = look::from_reference(name, &stats);
+    let reference_path = look_path(&looks_dir(&app_handle)?, &look.id)?.with_extension("ref.png");
+    neural::thumbnail(&reference)
+        .save(&reference_path)
+        .map_err(|e| e.to_string())?;
+    look.has_reference = true;
     save_look(&app_handle, &look)?;
     Ok(look)
+}
+
+/// Runs the neural engine for `look_id` on the open photo (its analysis `analysis_id`); the render then
+/// uses it when the edit's `smartLut.engine` is "neural".
+#[tauri::command]
+pub async fn prepare_smart_lut_neural(
+    js_adjustments: Value,
+    look_id: String,
+    analysis_id: String,
+    state: tauri::State<'_, AppState>,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let reference_path = look_path(&looks_dir(&app_handle)?, &look_id)?.with_extension("ref.png");
+    let reference = image::open(&reference_path)
+        .map_err(|_| "This look has no saved reference photo: create it again from the photo".to_string())?
+        .to_rgb8();
+    let warped = get_cached_full_warped_image(&state, &js_adjustments)?;
+    let target = neural::thumbnail(&warped);
+    let key = neural::key(&look_id, &analysis_id);
+    tauri::async_runtime::spawn_blocking(move || neural::run(&app_handle, &key, &reference, &target))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 fn encode_png(mask: &GrayImage) -> Result<String, String> {

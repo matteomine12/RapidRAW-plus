@@ -12,6 +12,7 @@ use serde_json::Value;
 use super::color::DisplayMode;
 use super::compile::{SmartLutData, compile};
 use super::look::SmartLook;
+use super::neural;
 use super::stats::ImageStats;
 use crate::masks::transform::{TransformParams, transform_full_mask};
 use crate::render::adjustment_utils::is_tool_active;
@@ -136,10 +137,26 @@ pub fn attach(
         &|h| stats_value.to_string().hash(h),
         &|h| mode.hash(h),
     ]);
-    let lut = cached(compiled_cache(), lut_key, COMPILED_CACHE, || {
-        let look: SmartLook = serde_json::from_value(look_value.clone()).ok()?;
-        let stats: ImageStats = serde_json::from_value(stats_value.clone()).ok()?;
-        Some(compile(&look, &stats, mode))
+    // the neural engine, when chosen and already run for this look on this photo
+    let neural = (smart["engine"].as_str() == Some("neural"))
+        .then(|| {
+            neural::cached(&neural::key(
+                look_value["id"].as_str()?,
+                smart["analysis"]["id"].as_str()?,
+            ))
+        })
+        .flatten();
+    let lut_key = match &neural {
+        Some(raw) => hash_of(&[&|h| lut_key.hash(h), &|h| (Arc::as_ptr(raw) as usize).hash(h)]),
+        None => lut_key,
+    };
+    let lut = cached(compiled_cache(), lut_key, COMPILED_CACHE, || match &neural {
+        Some(raw) => Some(neural::to_engine(raw, mode)),
+        None => {
+            let look: SmartLook = serde_json::from_value(look_value.clone()).ok()?;
+            let stats: ImageStats = serde_json::from_value(stats_value.clone()).ok()?;
+            Some(compile(&look, &stats, mode))
+        }
     })?;
 
     let amount = |key: &str| (smart[key].as_f64().unwrap_or(100.0) as f32 / 100.0).clamp(0.0, 2.0);
@@ -161,7 +178,7 @@ pub fn attach(
         })
         .collect();
     let mut region_key = 0u64;
-    if !wanted.is_empty() && masks.len() + wanted.len() <= MAX_MASKS {
+    if neural.is_none() && !wanted.is_empty() && masks.len() + wanted.len() <= MAX_MASKS {
         for (bit, params) in wanted {
             let mask = place_mask(params, width, height, scale, crop_offset)
                 .unwrap_or_else(|| GrayImage::new(width, height));

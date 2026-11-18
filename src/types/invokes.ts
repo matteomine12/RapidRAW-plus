@@ -4,6 +4,7 @@ export enum Invokes {
   CreateSmartLutFromImage = 'create_smart_lut_from_image',
   DeleteSmartLut = 'delete_smart_lut',
   ListSmartLuts = 'list_smart_luts',
+  PrepareSmartLutNeural = 'prepare_smart_lut_neural',
   RenameSmartLut = 'rename_smart_lut',
   AddTagForPaths = 'add_tag_for_paths',
   ApplyAdjustments = 'apply_adjustments',

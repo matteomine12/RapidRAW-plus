@@ -649,6 +649,7 @@ pub fn run() {
             adjustments::smart_lut::create_smart_lut_from_colors,
             adjustments::smart_lut::create_smart_lut_from_image,
             adjustments::smart_lut::analyze_smart_lut_target,
+            adjustments::smart_lut::prepare_smart_lut_neural,
             library::presets::fetch_community_presets,
             library::presets::generate_all_community_previews,
             library::file_ops::save_temp_file,

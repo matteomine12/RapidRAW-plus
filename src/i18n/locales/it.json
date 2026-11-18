@@ -267,7 +267,11 @@
       "addColor": "Aggiungi colore",
       "colorTooltip": "Clic per cambiare, clic destro per rimuovere",
       "imagesFilter": "Immagini",
-      "empty": "Crea un look da una foto che ti piace, da un colore o da una palette. Si adatta a ogni foto: toni, colori, pelle, cielo e vegetazione."
+      "empty": "Crea un look da una foto che ti piace, da un colore o da una palette. Si adatta a ogni foto: toni, colori, pelle, cielo e vegetazione.",
+      "engineAnalytic": "Analitico",
+      "engineNeural": "Neurale (beta)",
+      "engineNeuralHint": "Il modello allenato, da confrontare con il motore analitico",
+      "engineNeuralMissing": "Ricrea il look dalla sua foto per usare il motore neurale"
     }
   },
   "contextMenus": {

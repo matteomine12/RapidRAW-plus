@@ -267,7 +267,11 @@
       "addColor": "Add color",
       "colorTooltip": "Click to change, right-click to remove",
       "imagesFilter": "Images",
-      "empty": "Create a look from a photo you like, a color or a palette. It adapts to every photo: tones, colors, skin, sky and vegetation."
+      "empty": "Create a look from a photo you like, a color or a palette. It adapts to every photo: tones, colors, skin, sky and vegetation.",
+      "engineAnalytic": "Analytic",
+      "engineNeural": "Neural (beta)",
+      "engineNeuralHint": "The trained model, to compare with the analytic engine",
+      "engineNeuralMissing": "Create the look again from its photo to use the neural engine"
     }
   },
   "contextMenus": {

@@ -49,6 +49,9 @@ pub struct SmartLook {
     pub regions: Regions<Option<RegionStats>>,
     /// How strongly hues are pulled toward the palette (0..1).
     pub hue_pull: f32,
+    /// A thumbnail of the reference is saved beside the look (`<id>.ref.png`), for the neural engine.
+    #[serde(default)]
+    pub has_reference: bool,
 }
 
 fn now_ms() -> i64 {
@@ -99,6 +102,7 @@ pub fn from_reference(name: String, stats: &ImageStats) -> SmartLook {
         } else {
             (stats.chroma * 4.0).clamp(0.2, 0.6)
         },
+        has_reference: false,
     }
 }
 
@@ -186,6 +190,7 @@ pub fn from_colors(name: String, colors: &[[f32; 3]]) -> Option<SmartLook> {
         } else {
             0.45
         },
+        has_reference: false,
     })
 }
 

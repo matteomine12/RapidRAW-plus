@@ -1159,3 +1159,19 @@ fn denoise_crop_as_slice() -> ort::Result<(Model, Vec<Output>)> {
         }],
     ))
 }
+
+pub const SMART_LUT_NEURAL_FILENAME: &str = "smart_lut_v1.onnx";
+
+/// The Smart LUT model (trained in training/smart_lut, copied into the models folder by hand for now).
+pub fn build_smart_lut_session(app_handle: &tauri::AppHandle) -> Result<Session> {
+    let _ = ort::init().with_name("AI-SmartLut").commit();
+    let path = get_models_dir(app_handle)?.join(SMART_LUT_NEURAL_FILENAME);
+    if !path.exists() {
+        anyhow::bail!(
+            "Smart LUT model not found: copy training/smart_lut/runs/v1/{} to {}",
+            SMART_LUT_NEURAL_FILENAME,
+            path.display()
+        );
+    }
+    build_session(&path, SessionKind::OneShot, false, None)
+}

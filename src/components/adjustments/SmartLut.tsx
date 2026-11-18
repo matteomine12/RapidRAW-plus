@@ -14,7 +14,7 @@ import { useSmartLut, useSmartLutProgress } from '../../hooks/useSmartLut';
 import { Invokes } from '../../types/invokes';
 import { Adjustments, areSectionPropsEqual } from '../../utils/adjustments';
 import { SPRING } from '../../utils/motion';
-import { hexToRgb, lookGradient, SmartLook } from '../../utils/smartLut';
+import { hexToRgb, lookGradient, SmartLook, SmartLutEngine } from '../../utils/smartLut';
 
 const REFERENCE_EXTENSIONS = [
   'jpg',
@@ -104,6 +104,60 @@ function LookTile({
   );
 }
 
+/** Analytic (the hand-built engine) or neural (the trained model, beta), to compare the two. */
+function EngineSwitch({
+  engine,
+  neuralAvailable,
+  running,
+  onChange,
+}: {
+  engine: SmartLutEngine;
+  neuralAvailable: boolean;
+  running: boolean;
+  onChange(engine: SmartLutEngine): void;
+}) {
+  const { t } = useTranslation();
+  const options: Array<{ id: SmartLutEngine; label: string; disabled: boolean; tooltip?: string }> = [
+    { id: 'analytic', label: t('adjustments.smartLut.engineAnalytic'), disabled: false },
+    {
+      id: 'neural',
+      label: t('adjustments.smartLut.engineNeural'),
+      disabled: !neuralAvailable,
+      tooltip: neuralAvailable
+        ? t('adjustments.smartLut.engineNeuralHint')
+        : t('adjustments.smartLut.engineNeuralMissing'),
+    },
+  ];
+  return (
+    <div className="mt-3 mx-auto w-full max-w-[260px] flex p-1 rounded-full bg-surface">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          disabled={option.disabled}
+          onClick={() => onChange(option.id)}
+          data-tooltip={option.tooltip}
+          className={clsx(
+            'relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-full text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+            engine === option.id ? 'text-button-text' : 'text-text-secondary hover:text-text-primary',
+          )}
+        >
+          {engine === option.id && (
+            <motion.span
+              layoutId="smart-lut-engine"
+              className="absolute inset-0 rounded-full bg-accent"
+              transition={SPRING.bouncy}
+            />
+          )}
+          <span className="relative flex items-center gap-1.5">
+            {option.id === 'neural' && running && <Loader2 size={12} className="animate-spin" />}
+            {option.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ColorLookCreator({
   onCreate,
   onCancel,
@@ -189,7 +243,8 @@ function ColorLookCreator({
 function SmartLutPanel({ adjustments, setAdjustments, onDragStateChange }: SmartLutPanelProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
-  const { applyLook, clearLook } = useSmartLut();
+  const { applyLook, clearLook, setEngine } = useSmartLut();
+  const neuralRunning = useSmartLutProgress((state) => state.neuralRunning);
   const path = useEditorStore((state) => state.selectedImage?.path);
   const analyzing = useSmartLutProgress((state) => state.analyzing);
   const downloadStatus = useProcessStore(selectAiModelDownloadStatus);
@@ -356,6 +411,12 @@ function SmartLutPanel({ adjustments, setAdjustments, onDragStateChange }: Smart
                 )}
               </AnimatePresence>
             </div>
+            <EngineSwitch
+              engine={smartLut.engine ?? 'analytic'}
+              neuralAvailable={!!smartLut.look.hasReference}
+              running={neuralRunning}
+              onChange={setEngine}
+            />
           </motion.div>
         )}
       </AnimatePresence>

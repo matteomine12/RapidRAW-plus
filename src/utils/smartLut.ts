@@ -4,6 +4,8 @@ export interface SmartLutPaletteColor {
   weight: number;
 }
 
+export type SmartLutEngine = 'analytic' | 'neural';
+
 export type SmartLookKind = 'image' | 'color' | 'palette';
 
 /** A saved Smart LUT recipe (see src-tauri/src/adjustments/smart_lut/look.rs). */
@@ -20,6 +22,8 @@ export interface SmartLook {
   saturation: number | null;
   regions: unknown;
   huePull: number;
+  /** A reference thumbnail is saved with the look (needed by the neural engine). */
+  hasReference?: boolean;
 }
 
 export interface SmartLutRegionMask {
@@ -48,6 +52,10 @@ export interface SmartLutState {
   /** 0..100, 100 = the look as extracted. */
   luminance: number;
   analysis: SmartLutAnalysis | null;
+  /** Which engine builds the LUTs; the neural one is the trained model (beta), for comparison. */
+  engine?: SmartLutEngine;
+  /** Bumped when the neural engine has been run for this photo, so the preview re-renders. */
+  neuralStamp?: number;
 }
 
 export const SMART_LUT_REGIONS: Array<SmartLutRegionName> = ['skin', 'sky', 'vegetation'];
